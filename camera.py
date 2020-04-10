@@ -3,13 +3,21 @@ import numpy as np
 import pyrealsense2 as rs
 
 
-class camera_output:
-    def __init__(self, rgb_frame, cloud, kp=None, des=None, cloud_kp=None):
+class Frame:
+    def __init__(self, rgb_frame, cloud, kp=None, des=None, cloud_kp=None, kp_arr=None):
         self.rgb_frame = rgb_frame
         self.cloud = cloud
         self.kp = kp
         self.des = des
         self.cloud_kp = cloud_kp
+        self.kp_arr = kp_arr
+
+    def transform2global(self, R, t):
+        # print(self.cloud_kp.shape, R.shape)
+        # print(np.matmul(self.cloud_kp, R).shape)
+        # exit()
+        # self.cloud_kp = np.matmul(self.cloud_kp, R) + t[:, 0]
+        self.cloud_kp = np.matmul(R.T, self.cloud_kp.T).T + t[:, 0]
 
 
 class RsCamera:
@@ -33,9 +41,9 @@ class RsCamera:
         self.u = None
         self.v = None
         self.cam_mat = np.asarray([
-            self.intr.fx, 0, self.intr.ppx,
-            0, self.intr.fy, self.intr.ppy,
-            0, 0, 1
+            [self.intr.fx, 0, self.intr.ppx],
+            [0, self.intr.fy, self.intr.ppy],
+            [0, 0, 1]
         ])
         self.distCoeffs = np.zeros((8, 1), dtype=np.float32)
 
@@ -57,9 +65,11 @@ class RsCamera:
         y = np.multiply(self.y, z)
         mask = np.nonzero(z)
 
-        points3d_all = np.stack([x[mask], y[mask], z[mask]], axis=1)
+        points3d_all = np.stack([x, y, z], axis=1)
 
         if kp_arr is not None:
+            if len(kp_arr) == 0:
+                return points3d_all[mask], []
             # set_kp_arr = {*[tuple(_) for _ in kp_arr]}
             # inds0 = np.where(np.asarray([tuple(a) in set_kp_arr for a in zip(self.u, self.v)]))[0]
             # print(inds0.shape, len(set_kp_arr))
@@ -67,15 +77,16 @@ class RsCamera:
             # inds2 = kp_arr[:, 0] * self.height + kp_arr[:, 1]
             inds_kp = kp_arr[:, 1] * self.width + kp_arr[:, 0]
             # inds4 = kp_arr[:, 1] * self.height + kp_arr[:, 0]
-
+            #
             # print(set(inds0) == set(inds1))
             # print(set(inds0) == set(inds2))
-            # print(set(inds0) == set(inds3))
+            # print(set(inds0) == set(inds_kp))
             # print(set(inds0) == set(inds4))
+            # exit()
             # mask_kps = None
-            return points3d_all, points3d_all[inds_kp]
+            return points3d_all[mask], points3d_all[inds_kp]
 
-        return points3d_all
+        return points3d_all[mask, :]
 
     def get(self):
 
@@ -93,9 +104,9 @@ class RsCamera:
         cloud = self.convert_depth_frame_to_pointcloud(depth_image, kp_arr)
 
         if self.flag_return_with_features:
-            return camera_output(frame, cloud[0], kp, des, cloud[1])
+            return Frame(frame, cloud[0], kp, des, cloud[1], kp_arr)
 
-        return camera_output(frame, cloud)
+        return Frame(frame, cloud)
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
