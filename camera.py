@@ -27,7 +27,10 @@ class Frame:
         # c4 = np.average(np.linalg.norm(a4 - b, axis=1))
         # print("reproj err 3d", c1, c2, c3, c4)
         # exit()
-        self.cloud_kp = np.matmul(R.T, self.cloud_kp.T).T + t[:, 0]
+        # self.cloud_kp = np.matmul(R.T, self.cloud_kp.T).T + t[:, 0]
+        # self.cloud_kp = np.matmul(R, self.cloud_kp.T).T + t[:, 0]
+        self.cloud_kp = np.matmul(self.cloud_kp, R) + t[:, 0]
+
         if log is not None:
             log['3d_point_diff'] = np.average(np.linalg.norm(self.cloud_kp[new_inds_for_old] - prev_cloud_kp, axis=1))
         self.cloud_kp[new_inds_for_old] = prev_cloud_kp
@@ -37,12 +40,20 @@ class RsCamera:
 
     def __init__(self, flag_return_with_features=False):
 
+        self.orb_params = dict(
+            nfeatures=500,
+            scaleFactor=1.2,
+            nlevels=8,
+            edgeThreshold=31,
+            firstLevel=0,
+            patchSize=31,
+            fastThreshold=20)
         self.flag_return_with_features = flag_return_with_features
         self.width = 640
         self.height = 480
 
         if self.flag_return_with_features:
-            self.feature_extractor = cv2.ORB_create()
+            self.feature_extractor = cv2.ORB_create(**self.orb_params)
         # Configure depth and color streams
         self.pipeline = rs.pipeline()
         config = rs.config()
@@ -120,6 +131,7 @@ class RsCamera:
             return Frame(frame, cloud[0], kp, des, cloud[1], kp_arr)
 
         return Frame(frame, cloud)
+
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt

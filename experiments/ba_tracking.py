@@ -5,7 +5,11 @@ from pprint import pprint
 from sklearn.linear_model import RANSACRegressor
 from filterpy.kalman.kalman_filter import KalmanFilter
 from utils import LOG, Visualizer
+import g2o
 
+pprint(dir(g2o))
+
+exit()
 camera = RsCamera(flag_return_with_features=True)
 
 bf_matcher = cv2.BFMatcher_create(normType=cv2.NORM_HAMMING, crossCheck=True)
@@ -54,11 +58,9 @@ while True:
         a1 = np.ascontiguousarray(prev_frame_ob.kp_arr[inds_prev, :].astype(np.float64))
         b1 = np.ascontiguousarray(frame_ob.cloud_kp[inds, :])
 
-        is_ok_ab, rvec_ab, tvec_ab, inliers_ab = cv2.solvePnPRansac(a, b, camera.cam_mat, camera.distCoeffs,
-                                                                    flags=cv2.SOLVEPNP_ITERATIVE)
+        is_ok_ab, rvec_ab, tvec_ab, inliers_ab = cv2.solvePnPRansac(a, b, camera.cam_mat, camera.distCoeffs, )
 
-        is_ok_ba, rvec_ba, tvec_ba, inliers_ba = cv2.solvePnPRansac(b1, a1, camera.cam_mat, camera.distCoeffs,
-                                                                    flags=cv2.SOLVEPNP_ITERATIVE)
+        is_ok_ba, rvec_ba, tvec_ba, inliers_ba = cv2.solvePnPRansac(b1, a1, camera.cam_mat, camera.distCoeffs)
 
         if not is_ok_ab or not is_ok_ba:
             print(2222222222222222222222222222222222222222)
