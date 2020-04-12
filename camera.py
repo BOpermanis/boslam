@@ -12,12 +12,25 @@ class Frame:
         self.cloud_kp = cloud_kp
         self.kp_arr = kp_arr
 
-    def transform2global(self, R, t):
-        # print(self.cloud_kp.shape, R.shape)
-        # print(np.matmul(self.cloud_kp, R).shape)
+    def transform2global(self, R, t, prev_cloud_kp, new_inds_for_old, log=None):
+
+        # R, t = np.eye(3), np.zeros((3, 1))
+        # print(R.shape, R.T.shape)
+        # a1 = (np.matmul(R.T, self.cloud_kp.T).T + t[:, 0])[new_inds_for_old]
+        # a2 = (np.matmul(R, self.cloud_kp.T).T + t[:, 0])[new_inds_for_old]
+        # a3 = (np.matmul(self.cloud_kp, R) + t[:, 0])[new_inds_for_old]
+        # a4 = (np.matmul(self.cloud_kp, R.T) + t[:, 0])[new_inds_for_old]
+        # b = prev_cloud_kp
+        # c1 = np.average(np.linalg.norm(a1 - b, axis=1))
+        # c2 = np.average(np.linalg.norm(a2 - b, axis=1))
+        # c3 = np.average(np.linalg.norm(a3 - b, axis=1))
+        # c4 = np.average(np.linalg.norm(a4 - b, axis=1))
+        # print("reproj err 3d", c1, c2, c3, c4)
         # exit()
-        # self.cloud_kp = np.matmul(self.cloud_kp, R) + t[:, 0]
         self.cloud_kp = np.matmul(R.T, self.cloud_kp.T).T + t[:, 0]
+        if log is not None:
+            log['3d_point_diff'] = np.average(np.linalg.norm(self.cloud_kp[new_inds_for_old] - prev_cloud_kp, axis=1))
+        self.cloud_kp[new_inds_for_old] = prev_cloud_kp
 
 
 class RsCamera:
