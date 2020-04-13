@@ -65,14 +65,15 @@ RUN apt-get update \
           libboost-all-dev
 
 RUN pip3 install --ignore-installed pip && python3 -m pip install numpy
+RUN git clone https://github.com/BOpermanis/boslam.git boslam
 
-COPY install_opencv.sh /
-RUN chmod 777 /install_opencv.sh && /install_opencv.sh /cv2 python3
+#COPY install_opencv.sh /
+RUN chmod 777 /boslam/docker/install_opencv.sh && /boslam/docker/install_opencv.sh /cv2 python3
 RUN python3 -c "import cv2; print('opencv success!!')"
 
-ADD pydbow3 /pydbow3
-COPY install_dbow3.sh /
-RUN chmod 777 /install_dbow3.sh && /install_dbow3.sh
+#ADD pydbow3 /pydbow3
+#COPY install_dbow3.sh /
+RUN chmod 777 /boslam/docker/install_dbow3.sh && /boslam/docker/install_dbow3.sh
 #RUN echo 'export PYTHONPATH="${PYTHONPATH}:/pydbow3/src/build"' >> /root/.bashrc
 RUN python3 -c "import sys; sys.path.insert(0, '/pydbow3/src/build'); import pyDBoW3 as bow; print('pydbow3 success!!')"
 

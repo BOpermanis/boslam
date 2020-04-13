@@ -89,6 +89,14 @@ public:
 		return word;
 	}
 
+	DBoW3::WordId feat_id(const cv::Mat& feature) {
+		return vocabulary->transform(feature);
+	}
+
+	DBoW3::WordId id_weight(const DBoW3::WordId& i) {
+		return vocabulary->getWordWeight(i);
+	}
+
 	double score(const  DBoW3::BowVector &A, const DBoW3::BowVector &B) {
 		return vocabulary->score(A, B);
 	}
@@ -120,7 +128,7 @@ public:
 	std::vector<DBoW3::Result> query(const  cv::Mat &features, int max_results = 1, int max_id = -1) {
 		DBoW3::QueryResults results;
 		database->query(features, results, max_results, max_id);
-		return DBoW3::BowVector;
+		return results;
 	}
 
 	void save(const std::string &filename) const {
@@ -142,7 +150,6 @@ private:
 	DBoW3::Database * database;
 };
 
-// Wrap a few functions and classes for testing purposes
 namespace fs {
 	namespace python {
 
@@ -175,6 +182,8 @@ namespace fs {
 				.def("save", &Vocabulary::save)
 				.def("create", &Vocabulary::create)
 				.def("transform", &Vocabulary::transform, py::return_value_policy<py::return_by_value>())
+				.def("feat_id", &Vocabulary::feat_id, py::return_value_policy<py::return_by_value>())
+				.def("id_weight", &Vocabulary::id_weight, py::return_value_policy<py::return_by_value>())
 				.def("score", &Vocabulary::score)
 				.def("clear", &Vocabulary::clear);
 

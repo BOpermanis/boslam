@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+cd /
 # Install DBow3
 git clone https://github.com/BOpermanis/DBow3 DBow3
 cd DBow3
@@ -16,10 +17,9 @@ cmake -DOpenCV_DIR=${OpenCV_DIR} \
       -DCMAKE_C_FLAGS="-fPIC" \
       -DBUILD_UTILS=OFF .. && make && make install
 
-cd /
+cd /boslam/docker/pydbow3/src
 BUILD_PYTHON3="ON"
 pip3 install wheel
-cd /pydbow3/src
 mkdir build
 cd build
 cmake -DBUILD_PYTHON3=$BUILD_PYTHON3 \
