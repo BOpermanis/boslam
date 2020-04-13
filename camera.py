@@ -36,7 +36,7 @@ class Frame:
 
 
 class RsCamera:
-    def __init__(self, flag_return_with_features=False):
+    def __init__(self, flag_return_with_features=0):
 
         self.orb_params = dict(
             nfeatures=500,
@@ -50,8 +50,10 @@ class RsCamera:
         self.width = 640
         self.height = 480
 
-        if self.flag_return_with_features:
+        if self.flag_return_with_features == 1:
             self.feature_extractor = cv2.ORB_create(**self.orb_params)
+        if self.flag_return_with_features == 2:
+            pass
         # Configure depth and color streams
         self.pipeline = rs.pipeline()
         config = rs.config()
@@ -118,14 +120,22 @@ class RsCamera:
         depth_image = np.asanyarray(depth_frame.get_data())
         frame = np.asanyarray(color_frame.get_data())
 
-        kp_arr = None
-        if self.flag_return_with_features:
+        des, kp_arr, kp = None, None, None
+        if self.flag_return_with_features == 1:
             kp, des = self.feature_extractor.detectAndCompute(frame, mask=(depth_image > 0).astype(np.uint8))
             kp_arr = np.asarray([tuple(map(int, k.pt)) for k in kp])
 
+        if self.flag_return_with_features == 2:
+            _, corners = cv2.findChessboardCorners(frame, (8, 6), None)
+            if corners.shape[0] == 48:
+                corners = corners.astype(int)
+                kp_arr = np.asarray([(i, x, y) for i, (x, y) in enumerate(corners[:, 0, :]) if depth_image[y, x] > 0])
+                des = kp_arr[:, 0]
+                kp_arr = kp_arr[:, 1:]
+
         cloud = self.convert_depth_frame_to_pointcloud(depth_image, kp_arr)
 
-        if self.flag_return_with_features:
+        if self.flag_return_with_features != 0:
             return Frame(frame, cloud[0], kp, des, cloud[1], kp_arr)
 
         return Frame(frame, cloud)

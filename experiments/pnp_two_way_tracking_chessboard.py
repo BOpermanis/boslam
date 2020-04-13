@@ -2,16 +2,11 @@ import cv2
 import numpy as np
 from camera import RsCamera
 from pprint import pprint
+from sklearn.linear_model import RANSACRegressor
 from filterpy.kalman.kalman_filter import KalmanFilter
 from utils import LOG, Visualizer
-import pyDBoW3 as bow
 
-voc = bow.Vocabulary()
-voc.load("/DBow3/orbvoc.dbow3")
-
-
-def apply_dbow_voc(features):
-    return np.asarray([voc.feat_id(np.expand_dims(f, 0)) for f in features])
+camera = RsCamera(flag_return_with_features=2)
 
 def match_indices(inds1, inds2):
     yinds = []
@@ -20,10 +15,6 @@ def match_indices(inds1, inds2):
             if a == b:
                 yinds.append((i1, i2))
     return yinds
-
-camera = RsCamera(flag_return_with_features=True)
-
-bf_matcher = cv2.BFMatcher_create(normType=cv2.NORM_HAMMING, crossCheck=True)
 
 prev_frame_ob = None
 
@@ -53,10 +44,8 @@ while True:
         if prev_frame_ob.des is None or frame_ob.des is None:
             state = 0
             continue
-        des_prev = apply_dbow_voc(prev_frame_ob.des)
-        des = apply_dbow_voc(frame_ob.des)
-        matches = match_indices(des_prev, des)
-        print("len(matches)", len(matches))
+
+        matches = match_indices(prev_frame_ob.des, frame_ob.des)
         if len(matches) < 10:
             print(111111111111111111111111111111111111111)
             state = 0
@@ -98,7 +87,7 @@ while True:
         inds_prev = np.asarray(inds_prev)
         inds = np.asarray(inds)
 
-        # img = vis.show(frame_ob, inds_prev[inliers], inds[inliers])
+        img = vis.show(frame_ob, inds_prev[inliers], inds[inliers])
 
         prev_cloud_kp = prev_frame_ob.cloud_kp[inds_prev[inliers], :]
         log['old_tvec_norm'] = np.average(np.linalg.norm(prev_cloud_kp, axis=1))
@@ -125,6 +114,6 @@ while True:
     # if num_frames_in_this_track > 200:
     #     logs.save()
     #     exit()
-    # cv2.imshow('my webcam', img)
-    # if cv2.waitKey(1) == 27:
-    #     break  # esc to quit
+    cv2.imshow('my webcam', img)
+    if cv2.waitKey(1) == 27:
+        break  # esc to quit
