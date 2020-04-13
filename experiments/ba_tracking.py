@@ -106,7 +106,8 @@ while True:
 
     prev_frame_ob = frame_ob
 
-    print("{}) state norm {}, num_lost {}".format(num_frames_in_this_track, np.linalg.norm(camera_state[1].flatten()), num_lost))
+    print("{}) state norm {}, num_lost {}".format(num_frames_in_this_track, np.linalg.norm(camera_state[1].flatten()),
+                                                  num_lost))
     # if num_frames_in_this_track > 200:
     #     logs.save()
     #     exit()

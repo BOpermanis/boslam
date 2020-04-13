@@ -46,7 +46,8 @@ def show_pnts(*args, cameras=()):
     n = len(args)
     col1 = np.asarray([1, 0, 0])
     col2 = np.asarray([0, 100, 0])
-    dict_pnt_cols = {k: (col1 * a + col2 * (1 - a)).astype(np.int32) for k, a in enumerate(np.linspace(start=0.0, stop=1.0, num=n))}
+    dict_pnt_cols = {k: (col1 * a + col2 * (1 - a)).astype(np.int32) for k, a in
+                     enumerate(np.linspace(start=0.0, stop=1.0, num=n))}
 
     while not pangolin.ShouldQuit():
         gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
@@ -70,7 +71,6 @@ def show_pnts(*args, cameras=()):
 
 
 def ba_optimization(inds_cameras, inds_pnts, pixels, flag_verbose=True):
-
     optimizer = g2o.SparseOptimizer()
     # solver = g2o.BlockSolverSE3(g2o.LinearSolverCholmodSE3())
     solver = g2o.BlockSolverSE3(g2o.LinearSolverDenseSE3())
@@ -112,7 +112,6 @@ def ba_optimization(inds_cameras, inds_pnts, pixels, flag_verbose=True):
 
     dict_verticePair2length = {}
 
-
     # pprint([v for v in dir(g2o) if 'edge' in v.lower()])
     # pprint([v for v in dir(g2o.EdgePointXYZ)])
     # sys.exit()
@@ -135,7 +134,6 @@ def ba_optimization(inds_cameras, inds_pnts, pixels, flag_verbose=True):
 
     ## adding all constraints
     for id_cam, id_pnt, pixel in zip(inds_cameras, inds_pnts, pixels):
-
         edge = g2o.EdgeProjectXYZ2UV()
         edge.set_vertex(0, optimizer.vertex(id_pnt))
         edge.set_vertex(1, optimizer.vertex(id_cam))
@@ -164,7 +162,7 @@ def ba_optimization(inds_cameras, inds_pnts, pixels, flag_verbose=True):
 
 
 def generate_data():
-    cube_pnts = np.asarray(list(product(*[[0, 1]]*3)))
+    cube_pnts = np.asarray(list(product(*[[0, 1]] * 3)))
 
     focal_length = 1000
     principal_point = (320, 240)
@@ -200,7 +198,6 @@ def generate_data():
             continue
 
         for j, z in visible:
-
             inds_cameras.append(j)
             inds_pnts.append(point_id)
             pixels.append(z)
@@ -212,7 +209,7 @@ def generate_data():
 
 
 def generate_data2():
-    cube_pnts = np.asarray(list(product(*[[0, 1]]*3)))
+    cube_pnts = np.asarray(list(product(*[[0, 1]] * 3)))
 
     focal_length = 1000
     principal_point = (320, 240)
@@ -267,7 +264,6 @@ def generate_data2():
             continue
 
         for j, z in visible:
-
             inds_cameras.append(j)
             inds_pnts.append(point_id)
             pixels.append(z)
@@ -296,4 +292,4 @@ if __name__ == "__main__":
 
     show_pnts(cube_pnts, estimates, cameras=poses)
 
-    np.save("/home/slam_data/data/head_estimates.npy", estimates)
+    # np.save("/home/slam_data/data/head_estimates.npy", estimates)

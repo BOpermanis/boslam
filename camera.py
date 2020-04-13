@@ -13,7 +13,6 @@ class Frame:
         self.kp_arr = kp_arr
 
     def transform2global(self, R, t, prev_cloud_kp, new_inds_for_old, log=None):
-
         # R, t = np.eye(3), np.zeros((3, 1))
         # print(R.shape, R.T.shape)
         # a1 = (np.matmul(R.T, self.cloud_kp.T).T + t[:, 0])[new_inds_for_old]
@@ -37,7 +36,6 @@ class Frame:
 
 
 class RsCamera:
-
     def __init__(self, flag_return_with_features=False):
 
         self.orb_params = dict(
@@ -135,6 +133,7 @@ class RsCamera:
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
+
     cap = RsCamera()
     while True:
         frame, cloud = cap.get()
@@ -145,4 +144,3 @@ if __name__ == "__main__":
         cv2.imshow('my webcam', frame)
         if cv2.waitKey(1) == 27:
             break  # esc to quit
-

@@ -3,6 +3,8 @@ from pyDBoW3 import __version__, __short_description__, __author__, __author_ema
 
 try:
     from wheel.bdist_wheel import bdist_wheel as _bdist_wheel
+
+
     class bdist_wheel(_bdist_wheel):
         def finalize_options(self):
             _bdist_wheel.finalize_options(self)
@@ -41,4 +43,4 @@ setup(name='pyDBoW3',
           'numpy'
       ],
       cmdclass={'bdist_wheel': bdist_wheel},
-)
+      )

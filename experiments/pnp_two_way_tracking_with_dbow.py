@@ -6,6 +6,8 @@ from sklearn.linear_model import RANSACRegressor
 from filterpy.kalman.kalman_filter import KalmanFilter
 from utils import LOG, Visualizer
 
+exit()
+
 camera = RsCamera(flag_return_with_features=True)
 
 bf_matcher = cv2.BFMatcher_create(normType=cv2.NORM_HAMMING, crossCheck=True)

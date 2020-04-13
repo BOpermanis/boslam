@@ -4,10 +4,8 @@ from distutils.sysconfig import get_python_lib
 import glob
 import shutil
 
-
 __library_file__ = './pangolin*.so'
 __version__ = '0.0.1'
-
 
 
 class CopyLibFile(install):
@@ -23,8 +21,6 @@ class CopyLibFile(install):
 
         print('copying {} -> {}'.format(lib_file[0], install_dirs[0]))
         shutil.copy(lib_file[0], install_dirs)
-
-
 
 
 setup(

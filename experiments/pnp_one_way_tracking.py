@@ -10,7 +10,6 @@ camera = RsCamera(flag_return_with_features=True)
 
 bf_matcher = cv2.BFMatcher_create(normType=cv2.NORM_HAMMING, crossCheck=True)
 
-
 prev_frame_ob = None
 
 """
@@ -78,6 +77,6 @@ while True:
     if i_frame > 50:
         logs.save()
         exit()
-    # cv2.imshow('my webcam', frame)
-    # if cv2.waitKey(1) == 27:
-    #     break  # esc to qui
+        # cv2.imshow('my webcam', frame)
+        # if cv2.waitKey(1) == 27:
+        #     break  # esc to qui

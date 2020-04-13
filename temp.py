@@ -4,7 +4,6 @@ import g2o
 import pangolin
 import pyrealsense2 as rs
 
-
 print(cv2.__version__)
 print(np.__version__)
 # print(g2o.__version__)

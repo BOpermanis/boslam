@@ -13,7 +13,6 @@ config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
 config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
 pipeline.start(config)
 
-
 while True:
     frames = pipeline.wait_for_frames()
     depth_frame = frames.get_depth_frame()
@@ -21,7 +20,7 @@ while True:
     depth_image = np.asanyarray(depth_frame.get_data())
     frame = np.asanyarray(color_frame.get_data())
 
-    depth_image = (np.log(1 + depth_image )* 30).astype(np.uint8)
+    depth_image = (np.log(1 + depth_image) * 30).astype(np.uint8)
 
     depth_image = np.expand_dims(depth_image, axis=2)
     # depth_frame = cv2.cvtColor(depth_frame, cv2.COLOR_GRAY2RGB)
@@ -34,4 +33,3 @@ while True:
     cv2.imshow('my webcam', frame)
     if cv2.waitKey(1) == 27:
         break  # esc to quit
-

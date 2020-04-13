@@ -4,16 +4,18 @@ import time
 from config import data_dir
 import cv2
 
+
 def id2color(i):
     np.random.seed(i)
     # return tuple(np.random.randint(0, 256, (3,), dtype=np.uint8))
     return tuple(map(int, np.random.randint(0, 256, (3,))))
 
+
 class LOG:
     def __init__(self, logname):
         self.logname = logname
         self.list_lines = []
-        self.save_path = "{}/{}.csv".format(data_dir, self.logname)#.encode('utf-8',errors = 'strict')
+        self.save_path = "{}/{}.csv".format(data_dir, self.logname)  # .encode('utf-8',errors = 'strict')
 
     def add(self, log):
         self.list_lines.append(log)
