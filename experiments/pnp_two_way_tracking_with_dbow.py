@@ -5,8 +5,22 @@ from pprint import pprint
 from sklearn.linear_model import RANSACRegressor
 from filterpy.kalman.kalman_filter import KalmanFilter
 from utils import LOG, Visualizer
+import pyDBoW3 as bow
 
-exit()
+voc = bow.Vocabulary()
+voc.load("/DBow3/orbvoc.dbow3")
+
+
+def apply_dbow_voc(features):
+    return np.asarray([voc.feat_id(np.expand_dims(f, 0)) for f in features])
+
+def match_indices(inds1, inds2):
+    yinds = []
+    for i1, a in enumerate(inds1):
+        for i2, b in enumerate(inds2):
+            if a == b:
+                yinds.append((i1, i2))
+    return yinds
 
 camera = RsCamera(flag_return_with_features=True)
 
@@ -40,16 +54,17 @@ while True:
         if prev_frame_ob.des is None or frame_ob.des is None:
             state = 0
             continue
-
-        matches = bf_matcher.match(prev_frame_ob.des, frame_ob.des)
-        matches = [m for m in matches if m.distance < 20]
+        des_prev = apply_dbow_voc(prev_frame_ob.des)
+        des = apply_dbow_voc(frame_ob.des)
+        matches = match_indices(des_prev, des)
+        print("len(matches)", len(matches))
         if len(matches) < 10:
             print(111111111111111111111111111111111111111)
             state = 0
             continue
 
         log['num_matches'] = len(matches)
-        inds_prev, inds = zip(*((_.queryIdx, _.trainIdx) for _ in matches))
+        inds_prev, inds = zip(*matches)
         a = np.ascontiguousarray(prev_frame_ob.cloud_kp[inds_prev, :])
         b = np.ascontiguousarray(frame_ob.kp_arr[inds, :].astype(np.float64))
 
@@ -84,7 +99,7 @@ while True:
         inds_prev = np.asarray(inds_prev)
         inds = np.asarray(inds)
 
-        img = vis.show(frame_ob, inds_prev[inliers], inds[inliers])
+        # img = vis.show(frame_ob, inds_prev[inliers], inds[inliers])
 
         prev_cloud_kp = prev_frame_ob.cloud_kp[inds_prev[inliers], :]
         log['old_tvec_norm'] = np.average(np.linalg.norm(prev_cloud_kp, axis=1))
@@ -111,6 +126,6 @@ while True:
     # if num_frames_in_this_track > 200:
     #     logs.save()
     #     exit()
-    cv2.imshow('my webcam', img)
-    if cv2.waitKey(1) == 27:
-        break  # esc to quit
+    # cv2.imshow('my webcam', img)
+    # if cv2.waitKey(1) == 27:
+    #     break  # esc to quit

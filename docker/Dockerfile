@@ -62,7 +62,9 @@ RUN apt-get update \
           libjpeg-dev \
           libtiff5-dev \
           libopenexr-dev \
-          libboost-all-dev
+          libboost-all-dev \
+          libgtk2.0-dev \
+          pkg-config
 
 RUN pip3 install --ignore-installed pip && python3 -m pip install numpy
 RUN git clone https://github.com/BOpermanis/boslam.git boslam
@@ -74,65 +76,65 @@ RUN python3 -c "import cv2; print('opencv success!!')"
 #ADD pydbow3 /pydbow3
 #COPY install_dbow3.sh /
 RUN chmod 777 /boslam/docker/install_dbow3.sh && /boslam/docker/install_dbow3.sh
-#RUN echo 'export PYTHONPATH="${PYTHONPATH}:/pydbow3/src/build"' >> /root/.bashrc
-RUN python3 -c "import sys; sys.path.insert(0, '/pydbow3/src/build'); import pyDBoW3 as bow; print('pydbow3 success!!')"
+#RUN echo 'export PYTHONPATH="${PYTHONPATH}:/boslam/docker/pydbow3/src/build"' >> /root/.bashrc
+RUN python3 -c "import sys; sys.path.insert(0, '/boslam/docker/pydbow3/src/build'); import pyDBoW3 as bow; print('pydbow3 success!!')"
 
-# g2o installation
-RUN cd ~ \
-    && git clone https://github.com/uoip/g2opy.git \
-    && cd g2opy \
-    && mkdir build \
-    && cd build \
-    && cmake .. \
-    && make -j8 \
-    && cd .. \
-    && python3 setup.py install
-
-RUN python3 -c "import g2o; print('g2o success!!')"
-
-RUN apt-get install -y libglew-dev
-
-COPY pangolin_setup_debugged.py /
-COPY display_x11_debugged.cpp /
-
-# pangolin installation
-RUN pip3 install PyOpenGL PyOpenGL_accelerate \
-    && git clone https://github.com/uoip/pangolin.git \
-    && mv pangolin_setup_debugged.py /pangolin/setup.py \
-    && mv display_x11_debugged.cpp /pangolin/src/display/device/display_x11.cpp \
-    && cd pangolin \
-    && mkdir build \
-    && cd build \
-    && cmake .. \
-    && make -j8 \
-    && cd .. \
-    && python3 setup.py install \
-    && cd / && mkdir data
-
-
-RUN python3 -c "import pangolin; print('pangolin success!!')"
-
-RUN git clone https://github.com/uoip/stereo_ptam.git
-
-##### upgrading GLX #############
-RUN apt-get install -y software-properties-common && \
-    add-apt-repository -y ppa:xorg-edgers/ppa && apt-get update  \
-    && apt install -y libdrm-dev  libx11-dev python-mako libx11-xcb-dev libxcb-dri2-0-dev mesa-utils\
-    libxcb-glx0-dev libxxf86vm-dev libxfixes-dev libxdamage-dev libxext-dev libexpat1-dev flex bison scons gedit\
-    && git clone https://gitlab.freedesktop.org/mesa/mesa.git \
-    && cd mesa \
-    && scons libgl-xlib force_scons=1\
-    && echo 'export LD_LIBRARY_PATH=/mesa/build/linux-x86_64-debug/gallium/targets/libgl-xlib/:$LD_LIBRARY_PATH' >> /root/.bashrc
-
-
-RUN apt install -y gedit imagemagick
-
-RUN git clone https://github.com/IntelRealSense/librealsense.git \
-    && apt-get install -y libssl-dev libusb-1.0-0-dev libgtk-3-dev libglfw3-dev \
-    && cd librealsense && ./scripts/setup_udev_rules.sh \
-    && mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=Release .. && make
-
-RUN pip3 install pyrealsense2
-
-EXPOSE 2222
-CMD ["/run.sh"]
+## g2o installation
+#RUN cd ~ \
+#    && git clone https://github.com/uoip/g2opy.git \
+#    && cd g2opy \
+#    && mkdir build \
+#    && cd build \
+#    && cmake .. \
+#    && make -j8 \
+#    && cd .. \
+#    && python3 setup.py install
+#
+#RUN python3 -c "import g2o; print('g2o success!!')"
+#
+#RUN apt-get install -y libglew-dev
+#
+#COPY pangolin_setup_debugged.py /
+#COPY display_x11_debugged.cpp /
+#
+## pangolin installation
+#RUN pip3 install PyOpenGL PyOpenGL_accelerate \
+#    && git clone https://github.com/uoip/pangolin.git \
+#    && mv pangolin_setup_debugged.py /pangolin/setup.py \
+#    && mv display_x11_debugged.cpp /pangolin/src/display/device/display_x11.cpp \
+#    && cd pangolin \
+#    && mkdir build \
+#    && cd build \
+#    && cmake .. \
+#    && make -j8 \
+#    && cd .. \
+#    && python3 setup.py install \
+#    && cd / && mkdir data
+#
+#
+#RUN python3 -c "import pangolin; print('pangolin success!!')"
+#
+#RUN git clone https://github.com/uoip/stereo_ptam.git
+#
+###### upgrading GLX #############
+#RUN apt-get install -y software-properties-common && \
+#    add-apt-repository -y ppa:xorg-edgers/ppa && apt-get update  \
+#    && apt install -y libdrm-dev  libx11-dev python-mako libx11-xcb-dev libxcb-dri2-0-dev mesa-utils\
+#    libxcb-glx0-dev libxxf86vm-dev libxfixes-dev libxdamage-dev libxext-dev libexpat1-dev flex bison scons gedit\
+#    && git clone https://gitlab.freedesktop.org/mesa/mesa.git \
+#    && cd mesa \
+#    && scons libgl-xlib force_scons=1\
+#    && echo 'export LD_LIBRARY_PATH=/mesa/build/linux-x86_64-debug/gallium/targets/libgl-xlib/:$LD_LIBRARY_PATH' >> /root/.bashrc
+#
+#
+#RUN apt install -y gedit imagemagick
+#
+#RUN git clone https://github.com/IntelRealSense/librealsense.git \
+#    && apt-get install -y libssl-dev libusb-1.0-0-dev libgtk-3-dev libglfw3-dev \
+#    && cd librealsense && ./scripts/setup_udev_rules.sh \
+#    && mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=Release .. && make
+#
+#RUN pip3 install pyrealsense2
+#
+#EXPOSE 2222
+#CMD ["/run.sh"]
