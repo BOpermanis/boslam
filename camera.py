@@ -62,6 +62,7 @@ class RsCamera:
         cfg = self.pipeline.start(config)
         profile = cfg.get_stream(rs.stream.depth)  # Fetch stream profile for depth stream
         self.intr = profile.as_video_stream_profile().get_intrinsics()
+
         self.u = None
         self.v = None
         self.cam_mat = np.asarray([
@@ -70,6 +71,10 @@ class RsCamera:
             [0, 0, 1]
         ])
         self.distCoeffs = np.zeros((8, 1), dtype=np.float32)
+
+        # params for BA
+        self.fx, self.fy, self.cx, self.cy = self.intr.fx, self.intr.fy, self.intr.ppx, self.intr.ppy
+        self.baseline = 0.06
 
     def convert_depth_frame_to_pointcloud(self, depth_image, kp_arr=None):
 
@@ -127,15 +132,17 @@ class RsCamera:
 
         if self.flag_return_with_features == 2:
             _, corners = cv2.findChessboardCorners(frame, (8, 6), None)
-            if corners.shape[0] == 48:
-                corners = corners.astype(int)
-                kp_arr = np.asarray([(i, x, y) for i, (x, y) in enumerate(corners[:, 0, :]) if depth_image[y, x] > 0])
-                des = kp_arr[:, 0]
-                kp_arr = kp_arr[:, 1:]
+            if corners is not None:
+                if corners.shape[0] == 48:
+                    corners = corners.astype(int)
+                    kp_arr = np.asarray(
+                        [(i, x, y) for i, (x, y) in enumerate(corners[:, 0, :]) if depth_image[y, x] > 0])
+                    des = kp_arr[:, 0]
+                    kp_arr = kp_arr[:, 1:]
 
         cloud = self.convert_depth_frame_to_pointcloud(depth_image, kp_arr)
 
-        if self.flag_return_with_features != 0:
+        if self.flag_return_with_features != 0 and isinstance(cloud, tuple):
             return Frame(frame, cloud[0], kp, des, cloud[1], kp_arr)
 
         return Frame(frame, cloud)

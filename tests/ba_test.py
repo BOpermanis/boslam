@@ -72,8 +72,8 @@ def show_pnts(*args, cameras=()):
 
 def ba_optimization(inds_cameras, inds_pnts, pixels, flag_verbose=True):
     optimizer = g2o.SparseOptimizer()
-    # solver = g2o.BlockSolverSE3(g2o.LinearSolverCholmodSE3())
-    solver = g2o.BlockSolverSE3(g2o.LinearSolverDenseSE3())
+    solver = g2o.BlockSolverSE3(g2o.LinearSolverCholmodSE3())
+    # solver = g2o.BlockSolverSE3(g2o.LinearSolverDenseSE3())
     # solver = g2o.BlockSolverSE3(g2o.LinearSolverCSparseSE3())
     # pprint([v for v in dir(g2o) if "solver" in v.lower()])
     # sys.exit()
@@ -90,7 +90,11 @@ def ba_optimization(inds_cameras, inds_pnts, pixels, flag_verbose=True):
     for i in set(inds_cameras):
         v_se3 = g2o.VertexSE3Expmap()
         v_se3.set_id(i)
-        pose_estimate = g2o.SE3Quat(np.random.normal(0, 2, size=(3, 3)), np.random.normal(0, 10, size=(3,)))
+        R, t = np.random.normal(0, 2, size=(3, 3)), np.random.normal(0, 10, size=(3,))
+        R, t = np.eye(3), np.zeros(3)
+        pose_estimate = g2o.SE3Quat(R, t)
+        print(R.shape, t.shape)
+        exit()
         v_se3.set_estimate(pose_estimate)
         if i < 1:
             v_se3.set_fixed(True)

@@ -5,6 +5,15 @@ from config import data_dir
 import cv2
 
 
+def match_indices(inds1, inds2):
+    yinds = []
+    for i1, a in enumerate(inds1):
+        for i2, b in enumerate(inds2):
+            if a == b:
+                yinds.append((i1, i2))
+    return yinds
+
+
 def id2color(i):
     np.random.seed(i)
     # return tuple(np.random.randint(0, 256, (3,), dtype=np.uint8))
