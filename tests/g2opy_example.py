@@ -1,6 +1,14 @@
 import numpy as np
 import g2o
 
+from pprint import pprint
+
+# pprint([a for a in dir(g2o.SparseOptimizer) if "vert" in a])
+pprint(dir(g2o.VertexSBAPointXYZ()))
+
+exit()
+
+
 class BundleAdjustment(g2o.SparseOptimizer):
     def __init__(self, ):
         super().__init__()
@@ -76,6 +84,9 @@ if __name__ == "__main__":
     while True:
         i_frame += 1
         frame_ob = cam.get()
+        if frame_ob.kp_arr is None:
+            print('lost')
+            continue
 
         if state == 1:
             if prev_frame_ob.des is not None and frame_ob.des is not None:
