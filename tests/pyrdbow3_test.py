@@ -7,6 +7,7 @@ voc = bow.Vocabulary()
 voc.load("/DBow3/orbvoc.dbow3")
 db = bow.Database()
 db.setVocabulary(voc, True, 2)
+# db.setVocabulary(voc, True, 2)
 
 camera = RsCamera(flag_return_with_features=True)
 
@@ -26,6 +27,9 @@ print("------------------------------------")
 print("------------------------------------")
 for frame_ob in frames:
     result = db.query(frame_ob.des, 1, -1)[0]
-    # pprint(dir(result))
-    print(result.Id, result.Score, result.nWords)
-    # exit()
+    pprint(dir(result))
+    print("result.Id", result.Id)
+    print("result.Score", result.Score)
+    print("result.nWords", result.nWords)
+    print("result.sumCommonWi", result.sumCommonWi)
+    exit()

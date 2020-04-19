@@ -1,92 +1,137 @@
+import numpy as np
+import cv2
+from pprint import pprint
+from multiprocessing import Queue
+
+from typing import Dict, Set, Tuple, List
+# pprint([a for a in dir(cv2) if "pnp" in a.lower()])
+# print(cv2.SOLVEPNP_EPNP)
+# exit()
+from pyDBoW3 import Database
+import g2o
+
+from config import d_hamming_max, min_matches_cg, dbow_tresh
+from slam.covisibility_graph import CovisibilityGraph
+from camera import Frame, RsCamera
+from slam.nodes import KeyFrame, MapPoint
+
+cos60 = np.cos(np.pi / 3)
+dmin = 0.1
+dmax = 20
+
+
+# tracker states
+map_init = 0
+ok = 1
+lost = 2
+
+
 class Tracker:
 
-    def __init__(self):
+    def __init__(self, cg: CovisibilityGraph, dbow: Database, cam: RsCamera):
+        self.state = map_init
+        self.cam_mat, self.dist_coefs = cam.cam_mat, cam.distCoeffs
+        self.t_from_last_kf = 0
+
+        self.cg = cg # covisibility graph
+        self.dbow = dbow # bag of words database
+        self.matcher = cv2.BFMatcher_create(cv2.NORM_HAMMING, crossCheck=True)
+
+    def match_to_kf(self, kf: KeyFrame, frame: Frame):
+        matches = self.matcher.match(kf.des, frame.des)
+        inds_ref, inds = zip(*((_.queryIdx, _.trainIdx) for _ in matches if _.distance <= d_hamming_max))
+
+        if len(inds) < min_matches_cg:
+            self.state = lost
+            return None, None, 0.0
+
+        is_ok, R, t, inliers = cv2.solvePnPRansac(kf.cloud_kp[inds_ref, :],
+                                                  frame.kp_arr[inds, :],
+                                                  self.cam_mat, self.dist_coefs,
+                                                  flags=cv2.SOLVEPNP_EPNP)
+        if not is_ok:
+            self.state = lost
+            return None, None, 0.0
+
+        if len(inliers) < min_matches_cg:
+            self.state = lost
+            return None, None, 0.0
+
+        R = cv2.Rodrigues(R)[0]
+        return R, t, (len(inds) - len(inliers)) / len(inds_ref)
+
+
+    def _predict(self, frame: Frame) -> (np.ndarray, np.ndarray):
+        R, t, r = self.match_to_kf(self.cg.kf_ref, frame)
+        return R, t, r
+
+    def _track_local_map(self, frame: Frame):
+        ids_matching = List[Tuple[int, int]]
+        feats = List[np.ndarray]
+        pts3d = []
+        for kf in self.cg.local_map:
+            for mp in kf:
+                pose = g2o.SE3Quat(frame.R, frame.t)
+                pixel = self.cam.cam_map(pose * mp.pt3d)
+                if 0 <= pixel[0] < self.width and 0 <= pixel[1] < self.height:
+                    if np.dot(frame.see_vector, mp.viewing_direction) < cos60:
+                        if dmin < np.linalg.norm(mp.t - frame.t) < dmax:
+                            # TODO check if scales matches
+                            ids_matching.append((kf.id, mp.id))
+                            feats.append(mp.feat)
+                            pts3d.append(mp.t)
+
+        matches = self.matcher.match(frame.des, feats)
+        inds_frame, inds = zip(*((_.queryIdx, _.trainIdx) for _ in matches if _.distance <= d_hamming_max))
+
+        # is_ok, R, t, inliers = cv2.solvePnPRansac(pts3d[inds_frame, :],
+        #                                           frame.kp_arr[inds, :],
+        #                                           self.cam_mat, self.dist_coefs,
+        #                                           flags=cv2.SOLVEPNP_EPNP)
+
+        # TODO ko darīt šeit, publikaacijaa rakstiits ka sheit pozu nosaka ar movement only BA
+        if is_ok:
+            return R, t
+        return None, None
+
+    def _ok_as_new_keyframe(self, frame):
         pass
 
-    def update(self, frame_ob, cam):
-        state = 0
-    n_pose = 0
-    n_point = 0
+    def update(self, frame: Frame, kf_queue: Queue) -> (np.ndarray, np.ndarray):
+        # TODO ieklaut motion model ?
 
-    i_frame = -1
-    dict_featid2nodeid = {}
+        self.t_from_last_kf += 1
+        if self.state == map_init:
+            if len(frame.des) >= 50:
+                R, t = np.eye(3), np.zeros(3)
+                self.cg.add_kf(KeyFrame(frame, R, t))
+                self.t_from_last_kf = 0
+                self.state = ok
+                return R, t
 
-    while True:
-        i_frame += 1
-        frame_ob = cam.get()
-        if frame_ob.kp_arr is None:
-            print('lost')
-            continue
+        if self.state == ok:
 
-        if state == 1:
-            if prev_frame_ob.des is not None and frame_ob.des is not None:
-                # matches = bf_matcher.match(prev_frame_ob.des, frame_ob.des)
-                matches = match_indices(prev_frame_ob.des, frame_ob.des)
+            R, t, r = self._predict(frame)
+            frame.transform2global(R, t)
 
-                if len(matches) < 10:
-                    state = 0
-                    continue
+            R, t = self._track_local_map(frame)
 
-                # inds_prev, inds = zip(*((_.queryIdx, _.trainIdx) for _ in matches))
-                inds_prev, inds = zip(*matches)
+            if self._ok_as_new_keyframe(frame):
+                self.t_from_last_kf = 0
+                kf_queue.put(KeyFrame(frame, R, t))
 
-                is_ok, rvec, t, inliers = cv2.solvePnPRansac(
-                    prev_frame_ob.cloud_kp[inds_prev, :],
-                    frame_ob.kp_arr[inds, :].astype(np.float64),
-                    cam.cam_mat, cam.distCoeffs)
+            # if R is not None:
+            #     if self.t_from_last_kf > 2 and r > 0.1:
 
-                if not is_ok:
-                    state = 0
-                    continue
+            return R, t
 
-                R = cv2.Rodrigues(rvec)[0]
-
-                inds_prev = np.asarray(inds_prev)
-                inds = np.asarray(inds)
-
-                prev_cloud_kp = prev_frame_ob.cloud_kp[inds_prev[inliers], :]
-                new_inds_for_old = inds[inliers]
-
-                frame_ob.transform2global(R, t, prev_cloud_kp, new_inds_for_old)
-
-                set_points_not_matched = set(list(range(frame_ob.kp_arr.shape[0]))).difference(inds)
-
-                ba.add_pose(n_pose, R, t[:, 0], cam, fixed=False)
-
-                dict_featid2nodeid_new = {}
-                for i_prev, i in zip(inds_prev, inds):
-                    ba.add_edge(dict_featid2nodeid[i_prev], n_pose, frame_ob.kp_arr[i, :])
-                    dict_featid2nodeid_new[i] = dict_featid2nodeid[i_prev]
-
-                for i in set_points_not_matched:
-                    dict_featid2nodeid_new[i] = n_point
-                    ba.add_point(n_point, frame_ob.cloud_kp[i, :])
-                    n_point += 1
-
-                dict_featid2nodeid = dict_featid2nodeid_new
-                n_pose += 1
-            else:
-                state = 0
-                continue
-
-        else:
-            R, t = np.eye(3), np.zeros(3)
-            ba.add_pose(n_pose, R, t, cam, fixed=True)
-            for i in range(frame_ob.cloud_kp.shape[0]):
-                ba.add_point(n_point, frame_ob.cloud_kp[i, :])
-                dict_featid2nodeid[i] = n_point
-                ba.add_edge(n_point, n_pose, frame_ob.kp_arr[i, :])
-                n_point += 1
-
-            n_pose += 1
-            state = 1
-
-        prev_frame_ob = frame_ob
-
-        # cv2.imshow('my webcam', frame_ob.rgb_frame)
-        # if cv2.waitKey(1) == 27:
-        #     break  # esc to qui
-        time.sleep(0.05)
-        if i_frame > 100:
-            break
+        if self.state == lost:
+            q = self.dbow.query(frame.des, 1, -1)[0]
+            if q.Score >= dbow_tresh:
+                R, t = self.match_to_kf(self.cg.dict_kfs[q.Id], frame)
+                if R is not None:
+                    self.t_from_last_kf = 0
+                    self.state = ok
+                    return R, t
+            return None, None
 
