@@ -192,4 +192,14 @@ template<typename Key, typename Value>
 
 };
 
+template <class K, class V>
+boost::python::dict toPythonDict(std::map<K, V> map) {
+    typename std::map<K, V>::iterator iter;
+	boost::python::dict dictionary;
+	for (iter = map.begin(); iter != map.end(); ++iter) {
+		dictionary[iter->first] = iter->second;
+	}
+	return dictionary;
+}
+
 #endif // UTILS_CONTAINER_H_

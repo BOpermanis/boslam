@@ -89,6 +89,35 @@ public:
 		return word;
 	}
 
+//	std::pair<cv::Mat, cv::Mat> transform_numpy(const  std::vector<cv::Mat> & features) {
+//		DBoW3::BowVector word;
+//		vocabulary->transform(features, word);
+//
+//		cv::Mat inds;
+//		cv::Mat wts;
+//		for(std::map<DBoW3::WordId,DBoW3::WordValue>::iterator iter = word.begin(); iter != word.end(); ++iter)
+//		{
+//		    inds.push_back(iter->first);
+//		    wts.push_back(iter->second);
+//        }
+//		return std::make_pair(inds, wts);
+//	}
+
+    cv::Mat transform_numpy(const  std::vector<cv::Mat> & features) {
+		DBoW3::BowVector word;
+		vocabulary->transform(features, word);
+
+		cv::Mat wts;
+//		std::cout << "word.size() " << word.size() << std::endl;
+		for(std::map<DBoW3::WordId,DBoW3::WordValue>::iterator iter = word.begin(); iter != word.end(); ++iter)
+		{
+//		    wts.push_back(std::make_pair(iter->first, iter->second));
+            wts.push_back(int(iter->second));
+        }
+		return wts;
+	}
+
+
 	DBoW3::WordId feat_id(const cv::Mat& feature) {
 		return vocabulary->transform(feature);
 	}
@@ -125,9 +154,10 @@ public:
 		return database->add(features, NULL, NULL);
 	}
 
-	std::vector<DBoW3::Result> query(const  cv::Mat &features, int max_results = 1, int max_id = -1) {
+	std::vector<DBoW3::Result> query(const  cv::Mat &features, const std::vector<int> target_inds, int max_results = 1, int max_id = -1) {
 		DBoW3::QueryResults results;
-		database->query(features, results, max_results, max_id);
+//		std::cout << set_target.empty() << std::endl;
+		database->query(features, results, target_inds, max_results, max_id);
 		return results;
 	}
 
@@ -182,6 +212,7 @@ namespace fs {
 				.def("save", &Vocabulary::save)
 				.def("create", &Vocabulary::create)
 				.def("transform", &Vocabulary::transform, py::return_value_policy<py::return_by_value>())
+				.def("transform_numpy", &Vocabulary::transform_numpy, py::return_value_policy<py::return_by_value>())
 				.def("feat_id", &Vocabulary::feat_id, py::return_value_policy<py::return_by_value>())
 				.def("id_weight", &Vocabulary::id_weight, py::return_value_policy<py::return_by_value>())
 				.def("score", &Vocabulary::score)
@@ -205,6 +236,7 @@ namespace fs {
 				.def_readonly("sumCommonVi", &DBoW3::Result::sumCommonVi)
 				.def_readonly("sumCommonWi", &DBoW3::Result::sumCommonWi)
 				.def_readonly("expectedChiScore", &DBoW3::Result::expectedChiScore);
+
 		}
 
 	} // namespace fs
