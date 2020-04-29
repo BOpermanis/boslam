@@ -89,35 +89,6 @@ public:
 		return word;
 	}
 
-//	std::pair<cv::Mat, cv::Mat> transform_numpy(const  std::vector<cv::Mat> & features) {
-//		DBoW3::BowVector word;
-//		vocabulary->transform(features, word);
-//
-//		cv::Mat inds;
-//		cv::Mat wts;
-//		for(std::map<DBoW3::WordId,DBoW3::WordValue>::iterator iter = word.begin(); iter != word.end(); ++iter)
-//		{
-//		    inds.push_back(iter->first);
-//		    wts.push_back(iter->second);
-//        }
-//		return std::make_pair(inds, wts);
-//	}
-
-    cv::Mat transform_numpy(const  std::vector<cv::Mat> & features) {
-		DBoW3::BowVector word;
-		vocabulary->transform(features, word);
-
-		cv::Mat wts;
-//		std::cout << "word.size() " << word.size() << std::endl;
-		for(std::map<DBoW3::WordId,DBoW3::WordValue>::iterator iter = word.begin(); iter != word.end(); ++iter)
-		{
-//		    wts.push_back(std::make_pair(iter->first, iter->second));
-            wts.push_back(int(iter->second));
-        }
-		return wts;
-	}
-
-
 	DBoW3::WordId feat_id(const cv::Mat& feature) {
 		return vocabulary->transform(feature);
 	}
@@ -160,6 +131,16 @@ public:
 		database->query(features, results, target_inds, max_results, max_id);
 		return results;
 	}
+
+    cv::Mat compare_bows(const int i, const int j) {
+        cv::Mat out;
+        unsigned int cnt = 0;
+        float score = 0;
+        database->compareBowsL1(i, j, cnt, score);
+        out.push_back(float(cnt));
+        out.push_back(score);
+        return out;
+    }
 
 	void save(const std::string &filename) const {
 		database->save(filename);
@@ -212,10 +193,9 @@ namespace fs {
 				.def("save", &Vocabulary::save)
 				.def("create", &Vocabulary::create)
 				.def("transform", &Vocabulary::transform, py::return_value_policy<py::return_by_value>())
-				.def("transform_numpy", &Vocabulary::transform_numpy, py::return_value_policy<py::return_by_value>())
 				.def("feat_id", &Vocabulary::feat_id, py::return_value_policy<py::return_by_value>())
 				.def("id_weight", &Vocabulary::id_weight, py::return_value_policy<py::return_by_value>())
-				.def("score", &Vocabulary::score)
+//				.def("score", &Vocabulary::score)
 				.def("clear", &Vocabulary::clear);
 
 			py::class_<Database>("Database")
@@ -225,6 +205,7 @@ namespace fs {
 				.def("load", &Database::load)
 				.def("loadVocabulary", &Database::loadVocabulary)
 				.def("add", &Database::add)
+				.def("compare_bows", &Database::compare_bows, py::return_value_policy<py::return_by_value>())
 				.def("query", &Database::query, py::return_value_policy<py::return_by_value>());
 
 			py::class_<DBoW3::Result>("Result")
@@ -235,6 +216,7 @@ namespace fs {
 				.def_readonly("chiScore", &DBoW3::Result::chiScore)
 				.def_readonly("sumCommonVi", &DBoW3::Result::sumCommonVi)
 				.def_readonly("sumCommonWi", &DBoW3::Result::sumCommonWi)
+				.def_readonly("minScoreInSelection", &DBoW3::Result::minScoreInSelection)
 				.def_readonly("expectedChiScore", &DBoW3::Result::expectedChiScore);
 
 		}
