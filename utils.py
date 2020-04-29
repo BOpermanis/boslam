@@ -5,6 +5,17 @@ from config import data_dir
 import cv2
 
 
+def Rt2se3(R, t):
+    se3 = np.eye(4)
+    se3[:3, :3] = R
+    se3[:3, 3] = t
+    return se3
+
+
+def se32Rt(se3):
+    return se3[:3, :3], se3[:3, 3]
+
+
 def match_indices(inds1, inds2):
     yinds = []
     for i1, a in enumerate(inds1):

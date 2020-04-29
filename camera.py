@@ -11,8 +11,13 @@ class Frame:
         self.des = des
         self.cloud_kp = cloud_kp
         self.kp_arr = kp_arr
+
+        # global transformation
         self.R = None
         self.t = None
+
+        # wrt last frame
+        self.relt = None
 
     def set_pose(self, R, t):
         self.R = R

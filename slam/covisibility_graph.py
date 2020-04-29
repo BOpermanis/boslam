@@ -39,6 +39,8 @@ class CovisibilityGraph(g2o.SparseOptimizer):
 
         int: self.num_kfs = 0
         int: self.num_mps = 0
+
+        # localmap
         self.local_map = Set[int]
         self.kf_ref = None
 

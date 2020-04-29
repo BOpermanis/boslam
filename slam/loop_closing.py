@@ -12,10 +12,10 @@ class GlobalMapManager:
 
     def _loop_candidate_detection(self, kf):
         # TODO
-        pass
+        self.dbow.query(kf.des, [], 1, -1)
 
     def _similiarity_transformation(self) -> (np.ndarray, np.ndarray):
-        # TODO return R, t that transofms start of the loop with the end
+        # TODO return R, t that transofms start of the loop with the end ????
         pass
 
     def _loop_fusion(self, R, t):
