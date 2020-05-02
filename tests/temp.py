@@ -20,8 +20,13 @@ db.add(des1)
 db.add(des2)
 
 print(db.compare_bows(0, 1))
-print(db.compare_bows(0, 1))
-# exit()
+print(db.compare_bows(1, 0))
+
+print(des1.shape)
+
+print(len(db.commonWords(des1, 0)))
+
+exit()
 result = db.query(des1, [0, 1], 1, -1)[0]
 print("result.Id", result.Id)
 print("result.Score", result.Score)

@@ -1,13 +1,12 @@
 import numpy as np
 import cv2
 from pprint import pprint
-from multiprocessing import Queue
 
 from typing import Dict, Set, Tuple, List
 # pprint([a for a in dir(cv2) if "pnp" in a.lower()])
 # print(cv2.SOLVEPNP_EPNP)
 # exit()
-from pyDBoW3 import Database
+from slam.bow_db import Dbow
 import g2o
 
 from config import d_hamming_max, min_matches_cg, dbow_tresh
@@ -28,8 +27,12 @@ state_lost = 2
 
 class Tracker:
 
-    def __init__(self, cg: CovisibilityGraph, dbow: Database, cam: RsCamera):
+    def __init__(self, cg: CovisibilityGraph, dbow: Dbow, cam: RsCamera, queue_new_kfs):
+        self.queue_new_kfs = queue_new_kfs
         self.state = state_map_init
+        self.width = cam.width
+        self.height = cam.height
+        self.cam = g2o.CameraParameters(cam.f, cam.principal_point, cam.baseline)
         self.cam_mat, self.dist_coefs = cam.cam_mat, cam.distCoeffs
         self.t_from_last_kf = 0
 
@@ -38,6 +41,7 @@ class Tracker:
         self.matcher = cv2.BFMatcher_create(cv2.NORM_HAMMING, crossCheck=True)
 
         self.last_frame = None
+        self.kf_ref = None
 
     def _track_with_motion(self, frame):
         if self.last_frame.relt is None:
@@ -47,34 +51,32 @@ class Tracker:
 
     def _track_wrt_refkf(self, frame):
 
-        # TODO
-        pass
+        matches = self.matcher.match(frame.des, self.kf_ref.des)
+        inds_f, inds_kf = zip(*((_.queryIdx, _.trainIdx) for _ in matches if _.distance < d_hamming_max))
 
-    def _track_local_map(self, frame):
-        pass
-
-    def match_to_kf(self, kf: KeyFrame, frame: Frame):
-        matches = self.matcher.match(kf.des, frame.des)
-        inds_ref, inds = zip(*((_.queryIdx, _.trainIdx) for _ in matches if _.distance <= d_hamming_max))
-
-        if len(inds) < min_matches_cg:
+        if len(inds_f) < min_matches_cg:
             self.state = state_lost
-            return None, None, 0.0
+            return False
 
-        is_ok, R, t, inliers = cv2.solvePnPRansac(kf.cloud_kp[inds_ref, :],
-                                                  frame.kp_arr[inds, :],
+        is_ok, R, t, inliers = cv2.solvePnPRansac(frame.cloud_kp[inds_f, :],
+                                                  self.kf_ref.kp_arr[inds_kf, :],
                                                   self.cam_mat, self.dist_coefs,
                                                   flags=cv2.SOLVEPNP_EPNP)
-        if not is_ok:
-            return None, None, 0.0
-
-        if len(inliers) < min_matches_cg:
-            return None, None, 0.0
-
         R = cv2.Rodrigues(R)[0]
-        return R, t, (len(inds) - len(inliers)) / len(inds_ref)
 
-    def _project_local_map(self, frame: Frame):
+        if len(inliers) < 15:
+            return False
+
+        frame.kf_ref = self.kf_ref.id
+        frame.rel_to_kf = R, t
+        frame.setPose(R, t)
+        # frame.transform2global(R, t)
+
+        # for i_feat_kf, i_feat_f in zip(inds_kf[inliers], inds_f[inliers]):
+        #     id_mp = self.kf_ref.des2mp[i_feat_kf]
+        #     self.cg.edges_kf2mps[self.kf_ref.id][id_mp].add_observation(frame.des[i_feat_f], self.kf_ref.t - frame.t)
+
+    def _track_local_map(self, frame):
         ids_matching = List[Tuple[int, int]]
         feats = List[np.ndarray]
         pts3d = []
@@ -93,29 +95,33 @@ class Tracker:
         matches = self.matcher.match(frame.des, feats)
         inds_frame, inds = zip(*((_.queryIdx, _.trainIdx) for _ in matches if _.distance <= d_hamming_max))
 
-        # is_ok, R, t, inliers = cv2.solvePnPRansac(pts3d[inds_frame, :],
-        #                                           frame.kp_arr[inds, :],
-        #                                           self.cam_mat, self.dist_coefs,
-        #                                           flags=cv2.SOLVEPNP_EPNP)
+        is_ok, R, t, inliers = cv2.solvePnPRansac(pts3d[inds_frame, :],
+                                                  frame.kp_arr[inds, :],
+                                                  self.cam_mat, self.dist_coefs,
+                                                  flags=cv2.SOLVEPNP_EPNP)
 
-        # TODO ko darīt šeit, publikaacijaa rakstiits ka sheit pozu nosaka ar movement only BA
-        if is_ok:
-            return R, t
-        return None, None
+        if not is_ok or len(inliers) < 15:
+            return False
+
+        R = cv2.Rodrigues(R)[0]
+        frame.setPose(R, t)
+
+        return True
 
     def _ok_as_new_keyframe(self, frame):
         pass
 
     def update(self, frame):
         self.t_from_last_kf += 1
-        R, t = None, None
 
         if self.state == state_map_init:
-            if len(frame.des) >= 50:
+            if len(frame.des) >= 500:
                 R, t = np.eye(3), np.zeros(3)
-                self.cg.add_kf(KeyFrame(frame, R, t))
+                frame.setPose(R, t)
+                kf = self.cg.add_kf(frame)
                 self.t_from_last_kf = 0
                 self.last_frame = frame
+                self.kf_ref = kf
                 self.state = state_ok
                 return R, t
 
@@ -133,11 +139,14 @@ class Tracker:
                     self.state = state_lost
 
             if is_ok:
-                self._ok_as_new_keyframe(frame)
+                if self._ok_as_new_keyframe(frame):
+                    kf = self.cg.add_kf(frame)
+                    self.kf_ref = kf
+                    self.queue_new_kfs.put(kf.id)
 
         if self.state == state_lost:
             # TODO check if this implementation is ok
-            q = self.dbow.query(frame.des, [], 1, -1)[0]
+            q = self.dbow.query(frame)
             if q.Score >= dbow_tresh:
                 R, t = self.match_to_kf(self.cg.dict_kfs[q.Id], frame)
                 if R is not None:
@@ -147,5 +156,5 @@ class Tracker:
         if self.state == state_ok:
             self.last_frame = frame
             
-        return R, t
+        return frame.R, frame.t
 

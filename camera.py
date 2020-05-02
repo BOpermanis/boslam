@@ -4,6 +4,7 @@ import pyrealsense2 as rs
 
 
 class Frame:
+    cnt = 0
     def __init__(self, rgb_frame, cloud, kp=None, des=None, cloud_kp=None, kp_arr=None):
         self.rgb_frame = rgb_frame
         self.cloud = cloud
@@ -12,22 +13,30 @@ class Frame:
         self.cloud_kp = cloud_kp
         self.kp_arr = kp_arr
 
+        self.id = Frame.cnt
+        Frame.cnt += 1
+
         # global transformation
         self.R = None
         self.t = None
 
         # wrt last frame
-        self.relt = None
+        self.rel_to_kf = None, None
 
-    def set_pose(self, R, t):
-        self.R = R
-        self.t = t
+        self.flag_global_set = False
+
+    def setPose(self, R, t):
+        self.R, self.t = R, t
 
     def transform2global(self, R, t, prev_cloud_kp=None, new_inds_for_old=None, log=None):
+        assert not self.flag_global_set
         self.cloud_kp = np.matmul(self.cloud_kp, R) + t[:, 0]
+        self.flag_global_set = True
+        self.setPose(R, t)
 
         if log is not None:
             log['3d_point_diff'] = np.average(np.linalg.norm(self.cloud_kp[new_inds_for_old] - prev_cloud_kp, axis=1))
+
         if prev_cloud_kp is not None and new_inds_for_old is not None:
             self.cloud_kp[new_inds_for_old] = prev_cloud_kp
 
@@ -36,7 +45,7 @@ class RsCamera:
     def __init__(self, flag_return_with_features=0):
 
         self.orb_params = dict(
-            nfeatures=500,
+            nfeatures=600,
             scaleFactor=1.2,
             nlevels=8,
             edgeThreshold=31,

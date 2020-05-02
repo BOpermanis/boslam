@@ -1,3 +1,3 @@
-import matplotlib
+from typing import Dict, List
 
-print(matplotlib.get_backend())
+a = Dict[int, List[int]]

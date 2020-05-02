@@ -93,6 +93,16 @@ public:
 		return vocabulary->transform(feature);
 	}
 
+	std::vector<unsigned int> feats2words(const std::vector<cv::Mat> &features) {
+		DBoW3::BowVector bow;
+		vocabulary->transform(features, bow);
+		std::vector<unsigned int> words;
+		for(auto it=bow.begin(); it!=bow.end(); it++){
+		    words.push_back(it->first);
+		}
+		return words;
+	}
+
 	DBoW3::WordId id_weight(const DBoW3::WordId& i) {
 		return vocabulary->getWordWeight(i);
 	}
@@ -140,6 +150,18 @@ public:
         out.push_back(float(cnt));
         out.push_back(score);
         return out;
+    }
+
+    std::vector<int> commonWords(const cv::Mat &features, const DBoW3::WordId i) {
+        std::vector<DBoW3::WordId> inds;
+        std::vector<int> inds1;
+        database->commonWords(features, i, inds);
+        for(auto it = inds.begin(); it!=inds.end(); it++) {
+            inds1.push_back((int)*it);
+        }
+//        inds1 = (std::vector<DBoW3::WordId>) inds;
+//        inds.push_back(12);
+        return inds1;
     }
 
 	void save(const std::string &filename) const {
@@ -195,7 +217,7 @@ namespace fs {
 				.def("transform", &Vocabulary::transform, py::return_value_policy<py::return_by_value>())
 				.def("feat_id", &Vocabulary::feat_id, py::return_value_policy<py::return_by_value>())
 				.def("id_weight", &Vocabulary::id_weight, py::return_value_policy<py::return_by_value>())
-//				.def("score", &Vocabulary::score)
+				.def("feats2words", &Vocabulary::feats2words, py::return_value_policy<py::return_by_value>())
 				.def("clear", &Vocabulary::clear);
 
 			py::class_<Database>("Database")
@@ -206,6 +228,7 @@ namespace fs {
 				.def("loadVocabulary", &Database::loadVocabulary)
 				.def("add", &Database::add)
 				.def("compare_bows", &Database::compare_bows, py::return_value_policy<py::return_by_value>())
+				.def("commonWords", &Database::commonWords, py::return_value_policy<py::return_by_value>())
 				.def("query", &Database::query, py::return_value_policy<py::return_by_value>());
 
 			py::class_<DBoW3::Result>("Result")
