@@ -11,3 +11,6 @@ min_matches_cg = 15
 min_matches_eg = 100
 
 dbow_tresh = 0.5
+
+num_frames_from_last_kf = 3
+num_frames_from_last_relocation = 10

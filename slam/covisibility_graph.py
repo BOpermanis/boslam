@@ -41,7 +41,6 @@ class CovisibilityGraph(g2o.SparseOptimizer):
         # localmap
         self.local_map = Set[int]
 
-
         # TODO locks
 
     def get_loop_candidates(self):
@@ -55,7 +54,7 @@ class CovisibilityGraph(g2o.SparseOptimizer):
         self.dict_kfs[frame.id] = KeyFrame(frame, self.dbow, self)
 
         for i_mp, (feat, d2, d3) in enumerate(zip(frame.des, frame.kp, frame.cloud_kp)):
-            n = t - d3
+            n = frame.t - d3
             # TODO jaaizpeeta new mappoint creation publikācijā (un ari kodā)
             norm = np.linalg.norm(n)
             if norm > 0.0:

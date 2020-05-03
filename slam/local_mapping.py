@@ -8,11 +8,13 @@ from slam.covisibility_graph import CovisibilityGraph
 from slam.nodes import KeyFrame
 from config import d_hamming_max
 from camera import Frame
+from slam.bow_db import Dbow
 
 
 class LocalMapManager:
-    def __init__(self, cg: CovisibilityGraph, camera):
+    def __init__(self, cg: CovisibilityGraph, dbow: Dbow, camera):
         self.cg = cg
+        self.dbow = dbow
         self.matcher = cv2.BFMatcher_create(cv2.NORM_HAMMING, crossCheck=True)
 
         self.width = camera.width
@@ -20,9 +22,9 @@ class LocalMapManager:
         self.cam = g2o.CameraParameters(camera.f, camera.principal_point, camera.baseline)
         self.cam_mat, self.dist_coefs = camera.cam_mat, camera.distCoeffs
 
-    def _add_new_kf(self, kf: KeyFrame):
-        # TODO adds to covisibility graph?
-        pass
+    def _insert_new_kf(self, id_kf):
+        # TODO adds to covisibility graph? (already done in tracking thread ?)
+        return True
 
     def _recent_mps_culling(self):
         # TODO cull recent mappoints
@@ -48,11 +50,13 @@ class LocalMapManager:
         adds bow of the last processed kf to a queue for loop closing
         """
 
-        kf = kf_queue.get()
+        id_kf = kf_queue.get()
 
-        self._add_new_kf(kf)
+        self._insert_new_kf(id_kf)
 
-        bow_queue.put(kf)
+        self.dbow.add(self.cg.kfs[id_kf])
+
+        bow_queue.put(id_kf)
 
         self._recent_mps_culling()
 

@@ -25,7 +25,8 @@ print(db.compare_bows(1, 0))
 print(des1.shape)
 
 print(len(db.commonWords(des1, 0)))
-
+print(voc.distance(des1[0], des1[1]))
+print(voc.distance(des1[0], des1[0]))
 exit()
 result = db.query(des1, [0, 1], 1, -1)[0]
 print("result.Id", result.Id)

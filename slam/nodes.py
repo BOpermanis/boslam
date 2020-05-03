@@ -46,7 +46,10 @@ class MapPoint:
         return self.dbow.voc.feat_id(self.feat)
 
     def add_observation(self, feat, n):
+        if len(self.obs) > 5:
+            self.obs.pop(0)
         self.obs.append(feat)
+
 
     def get_viewing_direction(self):
         pass
