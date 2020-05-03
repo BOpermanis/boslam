@@ -17,7 +17,6 @@ cd /
 #      -DCMAKE_CXX_FLAGS="-fPIC" \
 #      -DCMAKE_C_FLAGS="-fPIC" \
 #      -DBUILD_UTILS=OFF .. && make && make install
-#
 #exit
 cd /boslam/docker/pydbow3/src
 BUILD_PYTHON3="ON"

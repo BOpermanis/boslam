@@ -107,6 +107,10 @@ public:
 		return vocabulary->getWordWeight(i);
 	}
 
+    int distance(const cv::Mat& f1, const cv::Mat& f2) {
+        return vocabulary->hamming_distance(f1.t(), f2.t());
+    }
+
 	double score(const  DBoW3::BowVector &A, const DBoW3::BowVector &B) {
 		return vocabulary->score(A, B);
 	}
@@ -218,6 +222,7 @@ namespace fs {
 				.def("feat_id", &Vocabulary::feat_id, py::return_value_policy<py::return_by_value>())
 				.def("id_weight", &Vocabulary::id_weight, py::return_value_policy<py::return_by_value>())
 				.def("feats2words", &Vocabulary::feats2words, py::return_value_policy<py::return_by_value>())
+				.def("distance", &Vocabulary::distance, py::return_value_policy<py::return_by_value>())
 				.def("clear", &Vocabulary::clear);
 
 			py::class_<Database>("Database")
