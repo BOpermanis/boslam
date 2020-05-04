@@ -12,8 +12,8 @@ import g2o
 
 from config import d_hamming_max, min_matches_cg, dbow_tresh, num_frames_from_last_kf, num_frames_from_last_relocation
 from slam.covisibility_graph import CovisibilityGraph
-from camera import Frame, RsCamera
-from slam.nodes import KeyFrame, MapPoint
+from camera import RsCamera
+# from slam.nodes import KeyFrame, MapPoint
 
 cos60 = np.cos(np.pi / 3)
 dmin = 0.1
@@ -46,22 +46,20 @@ class Tracker:
         self.kf_ref = None
 
     def _track_with_motion(self, frame):
-        if self.last_frame.relt is None:
-            return False
-        # TODO tracking with motion
-        pass
+        return False
 
     def _track_wrt_refkf(self, frame):
 
-        matches = self.matcher.match(frame.des, self.kf_ref.des)
+        matches = self.matcher.match(frame.des, self.kf_ref.desf())
         inds_f, inds_kf = zip(*((_.queryIdx, _.trainIdx) for _ in matches if _.distance < d_hamming_max))
 
         if len(inds_f) < min_matches_cg:
+            self.kf_ref.is_kf_ref(False)
             self.state = state_lost
             return False, 0.0
 
         is_ok, R, t, inliers = cv2.solvePnPRansac(frame.cloud_kp[inds_f, :],
-                                                  self.kf_ref.kp_arr[inds_kf, :],
+                                                  self.kf_ref.kp_arrf()[inds_kf, :].astype(np.float64),
                                                   self.cam_mat, self.dist_coefs,
                                                   flags=cv2.SOLVEPNP_EPNP)
         R = cv2.Rodrigues(R)[0]
@@ -69,36 +67,42 @@ class Tracker:
         if len(inliers) < 15:
             return False, 0.0
 
-        frame.kf_ref = self.kf_ref.id
+        frame.kf_ref = self.kf_ref.idf()
         frame.rel_to_kf = R, t
         frame.setPose(R, t)
-        return True, len(inliers) / len(self.kf_ref.des.shape[0])
+        return True, len(inliers) / self.kf_ref.desf().shape[0]
 
     def _track_local_map(self, frame):
         ids_matching_kfs = []
         ids_matching_mps = []
-        feats = List[np.ndarray]
+        feats = []
         pts3d = []
-        for id_kf in self.cg.get_local_map(self.kf_ref):
-            for id_mp in self.cg.edges_kf2mps[id_kf]:
-                mp = self.cg.mps[id_mp]
-                pose = g2o.SE3Quat(frame.R, frame.t)
-                pixel = self.cam.cam_map(pose * mp.pt3d)
-                if 0 <= pixel[0] < self.width and 0 <= pixel[1] < self.height:
-                    if np.dot(frame.see_vector, mp.n) < cos60:
-                        if dmin < np.linalg.norm(mp.t - frame.t) < dmax:
-                            # TODO check if scales matches
-                            ids_matching_kfs.append(id_kf)
-                            ids_matching_mps.append(id_mp)
-                            feats.append(mp.feat)
-                            pts3d.append(mp.t)
-                            self.cg.mps[id_mp].num_frames_visible += 1
+        with self.cg.lock_mps and self.cg.lock_edges_kf2mps:
+            for id_kf in self.cg.get_local_map(self.kf_ref):
+                for id_mp in self.cg.edges_kf2mps[id_kf]:
+                    mp = self.cg.mps[id_mp]
+                    # print(frame.R.shape, frame.t.shape)
+                    pose = g2o.SE3Quat(frame.R, frame.t[:, 0])
+                    pixel = self.cam.cam_map(pose * mp.pt3d)
+                    if 0 <= pixel[0] < self.width and 0 <= pixel[1] < self.height:
+                        if np.dot(frame.see_vector, mp.nf()) < cos60:
+                            if dmin < np.linalg.norm(mp.pt3df() - frame.t) < dmax:
+                                # TODO check if scales matches
+                                ids_matching_kfs.append(id_kf)
+                                ids_matching_mps.append(id_mp)
+                                feats.append(mp.featf())
+                                pts3d.append(mp.pt3df())
+                                self.cg.mps[id_mp].num_frames_visible_increment()
 
-        matches = self.matcher.match(frame.des, feats)
-        inds_frame, inds = zip(*((_.queryIdx, _.trainIdx) for _ in matches if _.distance <= d_hamming_max))
+        matches = [m for m in self.matcher.match(frame.des, feats) if m.distance <= d_hamming_max]
+        print("len(matches)", len(matches), d_hamming_max)
+        if len(matches) < 15:
+            return False
+
+        inds_frame, inds = zip(*((_.queryIdx, _.trainIdx) for _ in matches))
 
         is_ok, R, t, inliers = cv2.solvePnPRansac(pts3d[inds_frame, :],
-                                                  frame.kp_arr[inds, :],
+                                                  frame.kp_arr[inds, :].astype(np.float64),
                                                   self.cam_mat, self.dist_coefs,
                                                   flags=cv2.SOLVEPNP_EPNP)
 
@@ -106,13 +110,17 @@ class Tracker:
             return False
 
         frame.des2mp = -np.ones((len(frame.kp)), dtype=int)
-        for i_feat, id_mp in zip(inds_frame[inliers], ids_matching_mps[inds[inliers]]):
-            frame.des2mp[i_feat] = id_mp
-            self.cg.mps[id_mp].num_frame_found += 1
+
+        with self.cg.lock_mps:
+            for i_feat, id_mp in zip(inds_frame[inliers], ids_matching_mps[inds[inliers]]):
+                frame.des2mp[i_feat] = id_mp
+                self.cg.mps[id_mp].num_frame_found_increment()
 
         # matched frame features and matching mappoints
         id_new_kf_ref = Counter(ids_matching_kfs[inds[inliers]]).most_common(1)[0]
-        self.kf_ref = self.cg.kfs[id_new_kf_ref]
+        with self.cg.lock_kfs:
+            self.kf_ref = self.cg.kfs[id_new_kf_ref]
+            self.kf_ref.is_kf_ref(True)
 
         R = cv2.Rodrigues(R)[0]
         frame.setPose(R, t)
@@ -130,7 +138,8 @@ class Tracker:
         self.t_from_last_relocation += 1
 
         if self.state == state_map_init:
-            if len(frame.des) >= 500:
+            # print(len(frame.des))
+            if len(frame.des) >= 70:
                 R, t = np.eye(3), np.zeros(3)
                 frame.setPose(R, t)
                 kf = self.cg.add_kf(frame)
@@ -144,6 +153,7 @@ class Tracker:
             q = self.dbow.query(frame)
             if q.Score >= dbow_tresh:
                 self.kf_ref = self.cg.kfs[q.Id]
+                self.kf_ref.is_kf_ref(True)
                 self.state = state_relocated
 
         if self.state in (state_ok, state_relocated):
@@ -155,16 +165,19 @@ class Tracker:
             if not is_ok:
                 is_ok, r = self._track_wrt_refkf(frame)
                 if not is_ok:
+                    self.kf_ref.is_kf_ref(False)
                     self.state = state_lost
 
             if is_ok:
                 is_ok = self._track_local_map(frame)
                 if not is_ok:
+                    self.kf_ref.is_kf_ref(False)
                     self.state = state_lost
 
             if is_ok:
                 if self._ok_as_new_keyframe(frame, r):
                     kf = self.cg.add_kf(frame)
+                    kf.is_kf_ref(True)
                     self.kf_ref = kf
                     kf_queue.put(kf.id)
 

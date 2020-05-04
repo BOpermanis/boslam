@@ -21,9 +21,12 @@ class Frame:
         self.t = None
         self.des2mp = None
         self.flag_global_set = False
+        self.see_vector = np.asarray((0.0, 0.0, 1.0))
 
     def setPose(self, R, t):
         self.R, self.t = R, t
+        self.see_vector = np.matmul(self.R, self.see_vector)
+        self.see_vector /= np.linalg.norm(self.see_vector)
 
     def transform2global(self, R, t, prev_cloud_kp=None, new_inds_for_old=None, log=None):
         assert not self.flag_global_set
@@ -154,15 +157,19 @@ class RsCamera:
 
 
 if __name__ == "__main__":
-    import matplotlib.pyplot as plt
+    # import matplotlib.pyplot as plt
 
     cap = RsCamera()
+    i_frame = 0
     while True:
-        frame, cloud = cap.get()
-        print(frame.shape, cloud.shape)
-        plt.scatter(cloud[:, 2], cloud[:, 4])
-        plt.show()
-        exit()
-        cv2.imshow('my webcam', frame)
+        i_frame += 1
+        frame = cap.get()
+        if i_frame > 100:
+            break
+        # plt.scatter(cloud[:, 2], cloud[:, 4])
+        # plt.show()
+        # exit()
+        print(frame.rgb_frame.shape, frame.rgb_frame.dtype, np.min(frame.rgb_frame), np.max(frame.rgb_frame))
+        cv2.imshow('my webcam', frame.rgb_frame)
         if cv2.waitKey(1) == 27:
             break  # esc to quit

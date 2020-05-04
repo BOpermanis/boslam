@@ -28,12 +28,13 @@ while True:
     depth_frame = np.reshape(depth_image, (480, 640, 3))
 
     frame_gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
-    ret, corners = cv2.findChessboardCorners(frame_gray, (8, 6), None)
-    print("len(corners)", len(corners), corners.shape)
+    # ret, corners = cv2.findChessboardCorners(frame_gray, (8, 6), None)
+    # print("len(corners)", len(corners), corners.shape)
 
     frame = np.concatenate([
         frame, depth_frame
     ], axis=1)
+    print(frame.shape, frame.dtype, np.min(frame), np.max(frame))
 
     cv2.imshow('my webcam', frame)
     if cv2.waitKey(1) == 27:

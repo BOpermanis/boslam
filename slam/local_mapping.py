@@ -31,9 +31,10 @@ class LocalMapManager:
 
     def _recent_mps_culling(self, id_kf):
         mps_to_delete = []
-        for mp in self.cg.mps.values():
-            if not (mp.get_found_ratio() >= 0.25 and (mp.n_obs >= 3 or mp.first_kf == id_kf)):
-                mps_to_delete.append(mp)
+        with self.cg.lock_mps:
+            for mp in self.cg.mps.values():
+                if not (mp.get_found_ratio() >= 0.25 and (mp.n_obs >= 3 or mp.first_kf == id_kf)):
+                    mps_to_delete.append(mp)
         for mp in mps_to_delete:
             self.cg.erase_mp(mp)
 
@@ -51,44 +52,46 @@ class LocalMapManager:
         # tad saskaita cik tādu daudz ir un skatās vai prop > 0.9, ja ir tad vnk izmet
 
         voter = defaultdict(list)
-        for i1, i2 in combinations(self.cg.get_local_map(id_kf), 2):
-            num_common = self.cg.kf2kf_num_common_mps[key_common_mps(i2, i1)]
-            p1 = len(self.cg.edges_kf2mps[i1]) / num_common
-            p2 = len(self.cg.edges_kf2mps[i2]) / num_common
-            if p1 > 0.9:
-                voter[i1].append(i2)
-            if p2 > 0.9:
-                voter[i2].append(i1)
+        with self.cg.lock_edges_kf2mps and self.cg.lock_kf2kf_num_common_mps:
+            for i1, i2 in combinations(self.cg.get_local_map(id_kf, flag_with_input_kf=False), 2):
+                num_common = self.cg.kf2kf_num_common_mps[key_common_mps(i2, i1)]
+                p1 = len(self.cg.edges_kf2mps[i1]) / num_common
+                p2 = len(self.cg.edges_kf2mps[i2]) / num_common
+                if p1 > 0.9:
+                    voter[i1].append(i2)
+                if p2 > 0.9:
+                    voter[i2].append(i1)
 
         triples = sorted([(id_kf, l, len(l)) for id_kf, l in voter if len(l) > 2], key=lambda x: -x[1])
         set_close = {*[_[0] for _ in triples]}
         kfs_to_cull = {*[]}
-        while len(triples) > 0:
-            id_kf, l, n = triples.pop(0)
-            if id_kf in kfs_to_cull:
-                continue
-            for id_kf1 in l:
-                if id_kf1 in set_close:
-                    #  tests kuru izmest + izmeshana no set_close
-                    if len(voter[id_kf]) > len(voter[id_kf1]):
-                        kfs_to_cull.add(id_kf)
-                        set_close.remove(id_kf)
-                        break
-                    elif len(voter[id_kf]) < len(voter[id_kf1]):
-                        kfs_to_cull.add(id_kf1)
-                        set_close.remove(id_kf1)
-                    else:
-                        if len(self.cg.edges_kf2mps[id_kf]) < len(self.cg.edges_kf2mps[id_kf1]):
+
+        with self.cg.lock_edges_kf2mps:
+            while len(triples) > 0:
+                id_kf, l, n = triples.pop(0)
+                if id_kf in kfs_to_cull:
+                    continue
+                for id_kf1 in l:
+                    if id_kf1 in set_close:
+                        #  tests kuru izmest + izmeshana no set_close
+                        if len(voter[id_kf]) > len(voter[id_kf1]):
                             kfs_to_cull.add(id_kf)
                             set_close.remove(id_kf)
                             break
-                        else:
+                        elif len(voter[id_kf]) < len(voter[id_kf1]):
                             kfs_to_cull.add(id_kf1)
                             set_close.remove(id_kf1)
+                        else:
+                            if len(self.cg.edges_kf2mps[id_kf]) < len(self.cg.edges_kf2mps[id_kf1]):
+                                kfs_to_cull.add(id_kf)
+                                set_close.remove(id_kf)
+                                break
+                            else:
+                                kfs_to_cull.add(id_kf1)
+                                set_close.remove(id_kf1)
 
         for id_kf in kfs_to_cull:
             self.cg.erase_kf(self.cg.kfs[id_kf])
-
 
     def update(self, kf_queue: Queue, bow_queue: Queue):
         """
