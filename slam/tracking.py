@@ -1,6 +1,7 @@
 import numpy as np
 import cv2
 from pprint import pprint
+from collections import Counter
 
 from typing import Dict, Set, Tuple, List
 # pprint([a for a in dir(cv2) if "pnp" in a.lower()])
@@ -18,12 +19,12 @@ cos60 = np.cos(np.pi / 3)
 dmin = 0.1
 dmax = 20
 
-
 # tracker states
 state_map_init = 0
 state_ok = 1
 state_lost = 2
 state_relocated = 3
+
 
 class Tracker:
 
@@ -72,27 +73,26 @@ class Tracker:
         frame.rel_to_kf = R, t
         frame.setPose(R, t)
         return True, len(inliers) / len(self.kf_ref.des.shape[0])
-        # frame.transform2global(R, t)
-
-        # for i_feat_kf, i_feat_f in zip(inds_kf[inliers], inds_f[inliers]):
-        #     id_mp = self.kf_ref.des2mp[i_feat_kf]
-        #     self.cg.edges_kf2mps[self.kf_ref.id][id_mp].add_observation(frame.des[i_feat_f], self.kf_ref.t - frame.t)
 
     def _track_local_map(self, frame):
-        ids_matching = List[Tuple[int, int]]
+        ids_matching_kfs = []
+        ids_matching_mps = []
         feats = List[np.ndarray]
         pts3d = []
-        for kf in self.cg.local_map:
-            for mp in kf:
+        for id_kf in self.cg.get_local_map(self.kf_ref):
+            for id_mp in self.cg.edges_kf2mps[id_kf]:
+                mp = self.cg.mps[id_mp]
                 pose = g2o.SE3Quat(frame.R, frame.t)
                 pixel = self.cam.cam_map(pose * mp.pt3d)
                 if 0 <= pixel[0] < self.width and 0 <= pixel[1] < self.height:
-                    if np.dot(frame.see_vector, mp.viewing_direction) < cos60:
+                    if np.dot(frame.see_vector, mp.n) < cos60:
                         if dmin < np.linalg.norm(mp.t - frame.t) < dmax:
                             # TODO check if scales matches
-                            ids_matching.append((kf.id, mp.id))
+                            ids_matching_kfs.append(id_kf)
+                            ids_matching_mps.append(id_mp)
                             feats.append(mp.feat)
                             pts3d.append(mp.t)
+                            self.cg.mps[id_mp].num_frames_visible += 1
 
         matches = self.matcher.match(frame.des, feats)
         inds_frame, inds = zip(*((_.queryIdx, _.trainIdx) for _ in matches if _.distance <= d_hamming_max))
@@ -104,6 +104,15 @@ class Tracker:
 
         if not is_ok or len(inliers) < 15:
             return False
+
+        frame.des2mp = -np.ones((len(frame.kp)), dtype=int)
+        for i_feat, id_mp in zip(inds_frame[inliers], ids_matching_mps[inds[inliers]]):
+            frame.des2mp[i_feat] = id_mp
+            self.cg.mps[id_mp].num_frame_found += 1
+
+        # matched frame features and matching mappoints
+        id_new_kf_ref = Counter(ids_matching_kfs[inds[inliers]]).most_common(1)[0]
+        self.kf_ref = self.cg.kfs[id_new_kf_ref]
 
         R = cv2.Rodrigues(R)[0]
         frame.setPose(R, t)

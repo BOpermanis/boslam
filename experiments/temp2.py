@@ -1,23 +1,16 @@
 import numpy as np
-import cv2
+from time import time
 
-World = np.array([[-0.5, -0.5, 3.],
-                  [0.5, -0.5, 3.],
-                  [0.5, 0.5, 3.],
-                  [-0.5, 0., 3.]])
-keyPoints = np.array([[279.03286469, 139.80463604, 1.],
-                      [465.40665724, 136.70519839, 1.],
-                      [465.40665724, 325.1505936, 1.],
-                      [279.03286469, 230.927896, 1.]])
+def get_time(fun):
+    s = time()
+    fun()
+    return time() - s
 
-objectPoints = World
-imagePoints = keyPoints[:, :2]  # <--- THIS SLICE IS A PROBLEM CAUSER!!!
-# cv2.solvePnP(objectPoints, imagePoints, np.eye(3), np.zeros(5))
+N = 10000
+print(np.sum([get_time(lambda: set()) for _ in range(N)]))
+print(np.sum([get_time(lambda: {*[]}) for _ in range(N)]))
 
+a = list(np.random.randint(200, size=(100)))
 
-# imagePoints = np.ascontiguousarray(keyPoints[:,:2]).reshape((4,1,2)) # Now OpenCV is HAPPY!
-print(objectPoints.dtype)
-print(imagePoints.dtype)
-objectPoints = objectPoints.astype(np.int32)
-retval, rvec, tvec = cv2.solvePnP(np.ascontiguousarray(objectPoints), np.ascontiguousarray(imagePoints), np.eye(3),
-                                  np.zeros(5))
+print(np.sum([get_time(lambda: set(a)) for _ in range(N)]))
+print(np.sum([get_time(lambda: {*a}) for _ in range(N)]))

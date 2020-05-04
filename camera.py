@@ -19,10 +19,7 @@ class Frame:
         # global transformation
         self.R = None
         self.t = None
-
-        # wrt last frame
-        self.rel_to_kf = None, None
-
+        self.des2mp = None
         self.flag_global_set = False
 
     def setPose(self, R, t):

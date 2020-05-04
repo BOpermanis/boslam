@@ -4,6 +4,8 @@ import time
 from config import data_dir
 import cv2
 
+def key_common_mps(i1, i2):
+    return (i1, i2) if i1 < i2 else (i2, i1)
 
 def Rt2se3(R, t):
     se3 = np.eye(4)
