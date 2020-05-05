@@ -6,7 +6,8 @@ from collections import defaultdict
 from itertools import combinations
 
 # from multiprocessing import Lock
-from threading import Lock
+# from threading import Lock
+from utils import Lock
 from config import d_hamming_max
 from camera import Frame
 from utils import key_common_mps
@@ -52,6 +53,10 @@ class CovisibilityGraph():
         self.lock_edges_mp2kfs = Lock()
 
     def get_local_map(self, kf, flag_with_input_kf=True):
+        if isinstance(kf, int):
+            with self.lock_kfs:
+                kf = self.kfs[kf]
+
         with kf.lock:
             with self.lock_kfs:
                 if isinstance(kf, int):
@@ -60,6 +65,7 @@ class CovisibilityGraph():
             set_ids = set()
             with self.lock_edges_kf2kfs and self.lock_kf2kf_num_common_mps:
                 for id_kf1 in self.edges_kf2kfs[kf.id]:
+                    # print(kf.id in self.edges_kf2kfs[id_kf1])
                     if self.kf2kf_num_common_mps[key_common_mps(id_kf1, kf.id)] >= 15:
                         set_ids.add(id_kf1)
                         for id_kf2 in self.edges_kf2kfs[id_kf1]:
@@ -69,7 +75,8 @@ class CovisibilityGraph():
             if flag_with_input_kf:
                 set_ids.add(kf.id)
             else:
-                set_ids.remove(kf.id)
+                if len(set_ids) > 0:
+                    set_ids.remove(kf.id)
 
             return set_ids
 
@@ -106,7 +113,12 @@ class CovisibilityGraph():
         with self.lock_kfs and kf.lock and self.lock_mps:
             self.kfs[frame.id] = kf
             for i_feat, (feat, d2, d3, id_mp) in enumerate(zip(kf.des, kf.kp, kf.cloud_kp, kf.des2mp)):
-                n = frame.t - d3
+
+                if len(frame.t.shape) > 1:
+                    n = frame.t[:,0] - d3
+                else:
+                    n = frame.t - d3
+
                 norm = np.linalg.norm(n)
                 if norm > 0.0:
                     if id_mp == -1 or id_mp not in self.mps:

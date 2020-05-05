@@ -1,5 +1,7 @@
 import numpy as np
-from threading import Lock
+# from threading import Lock
+from utils import Lock
+from copy import deepcopy
 # import g2o
 # from camera import Frame
 # from slam.covisibility_graph import CovisibilityGraph

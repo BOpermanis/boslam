@@ -33,8 +33,33 @@ from threading import Thread, Lock
 #
 #     print(d)
 
-lock = Lock()
-lock1 = Lock()
+class Luck:
+    def __init__(self):
+        self.lock = Lock()
+        self.flag_locked = False
+
+    def __enter__(self, *args):
+        self.acquire(*args)
+
+    def __exit__(self, *args):
+        self.release(*args)
+
+    def acquire(self, *args):
+        if not self.flag_locked:
+            self.lock.__enter__(*args)
+            self.flag_locked = True
+
+    def release(self, *args):
+        if self.flag_locked:
+            self.lock.__exit__(*args)
+            self.flag_locked = False
+
+
+# lock = Lock()
+# lock1 = Lock()
+
+lock = Luck()
+lock1 = Luck()
 
 def show(ob):
     with lock and lock1:
@@ -43,10 +68,11 @@ def show(ob):
 
 def change(ob):
     sleep(1)
-    with lock and lock1:
-        with lock:
-            ob.append(123)
-            print("change: ", ob)
+    with lock:
+        with lock1:
+            with lock:
+                ob.append(123)
+                print("change: ", ob)
 
 ob = []
 # ob = Value([])

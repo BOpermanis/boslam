@@ -3,6 +3,28 @@ import pandas as pd
 import time
 from config import data_dir
 import cv2
+from threading import Lock as Luck
+
+class Lock:
+    def __init__(self):
+        self.lock = Luck()
+        self.flag_locked = False
+
+    def __enter__(self, *args):
+        self.acquire(*args)
+
+    def __exit__(self, *args):
+        self.release(*args)
+
+    def acquire(self, *args):
+        if not self.flag_locked:
+            self.lock.__enter__(*args)
+            self.flag_locked = True
+
+    def release(self, *args):
+        if self.flag_locked:
+            self.lock.__exit__(*args)
+            self.flag_locked = False
 
 def key_common_mps(i1, i2):
     return (i1, i2) if i1 < i2 else (i2, i1)

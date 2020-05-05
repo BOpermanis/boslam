@@ -53,7 +53,9 @@ class LocalMapManager:
 
         voter = defaultdict(list)
         with self.cg.lock_edges_kf2mps and self.cg.lock_kf2kf_num_common_mps:
-            for i1, i2 in combinations(self.cg.get_local_map(id_kf, flag_with_input_kf=False), 2):
+            ids = self.cg.get_local_map(id_kf, flag_with_input_kf=False)
+
+            for i1, i2 in combinations(ids, 2):
                 num_common = self.cg.kf2kf_num_common_mps[key_common_mps(i2, i1)]
                 p1 = len(self.cg.edges_kf2mps[i1]) / num_common
                 p2 = len(self.cg.edges_kf2mps[i2]) / num_common

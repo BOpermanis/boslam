@@ -86,7 +86,7 @@ class Tracker:
                     pixel = self.cam.cam_map(pose * mp.pt3d)
                     if 0 <= pixel[0] < self.width and 0 <= pixel[1] < self.height:
                         if np.dot(frame.see_vector, mp.nf()) < cos60:
-                            if dmin < np.linalg.norm(mp.pt3df() - frame.t) < dmax:
+                            if True: #dmin < np.linalg.norm(mp.pt3df() - frame.t) < dmax:
                                 # TODO check if scales matches
                                 ids_matching_kfs.append(id_kf)
                                 ids_matching_mps.append(id_mp)
@@ -94,30 +94,37 @@ class Tracker:
                                 pts3d.append(mp.pt3df())
                                 self.cg.mps[id_mp].num_frames_visible_increment()
 
+        feats = np.stack(feats)
+        pts3d = np.stack(pts3d)
         matches = [m for m in self.matcher.match(frame.des, feats) if m.distance <= d_hamming_max]
-        print("len(matches)", len(matches), d_hamming_max)
+
         if len(matches) < 15:
             return False
 
         inds_frame, inds = zip(*((_.queryIdx, _.trainIdx) for _ in matches))
 
-        is_ok, R, t, inliers = cv2.solvePnPRansac(pts3d[inds_frame, :],
-                                                  frame.kp_arr[inds, :].astype(np.float64),
+        is_ok, R, t, inliers = cv2.solvePnPRansac(pts3d[inds, :],
+                                                  frame.kp_arr[inds_frame, :].astype(np.float64),
                                                   self.cam_mat, self.dist_coefs,
                                                   flags=cv2.SOLVEPNP_EPNP)
 
         if not is_ok or len(inliers) < 15:
             return False
 
-        frame.des2mp = -np.ones((len(frame.kp)), dtype=int)
+        inliers = inliers.flatten()
+        inds_frame = np.asarray(inds_frame)
+        ids_matching_mps = np.asarray(ids_matching_mps)
+        inds = np.asarray(inds)
+        ids_matching_kfs = np.asarray(ids_matching_kfs)
 
+        frame.des2mp = -np.ones((len(frame.kp)), dtype=int)
         with self.cg.lock_mps:
             for i_feat, id_mp in zip(inds_frame[inliers], ids_matching_mps[inds[inliers]]):
                 frame.des2mp[i_feat] = id_mp
-                self.cg.mps[id_mp].num_frame_found_increment()
+                self.cg.mps[id_mp].num_frames_found_increment()
 
         # matched frame features and matching mappoints
-        id_new_kf_ref = Counter(ids_matching_kfs[inds[inliers]]).most_common(1)[0]
+        id_new_kf_ref = Counter(ids_matching_kfs[inds[inliers]]).most_common(1)[0][0]
         with self.cg.lock_kfs:
             self.kf_ref = self.cg.kfs[id_new_kf_ref]
             self.kf_ref.is_kf_ref(True)
@@ -138,8 +145,8 @@ class Tracker:
         self.t_from_last_relocation += 1
 
         if self.state == state_map_init:
-            # print(len(frame.des))
-            if len(frame.des) >= 70:
+            print(len(frame.des))
+            if len(frame.des) >= 50:
                 R, t = np.eye(3), np.zeros(3)
                 frame.setPose(R, t)
                 kf = self.cg.add_kf(frame)
@@ -151,6 +158,7 @@ class Tracker:
 
         if self.state == state_lost:
             q = self.dbow.query(frame)
+            print("q.Score", q.Score)
             if q.Score >= dbow_tresh:
                 self.kf_ref = self.cg.kfs[q.Id]
                 self.kf_ref.is_kf_ref(True)

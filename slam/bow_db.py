@@ -2,7 +2,8 @@ import numpy as np
 import cv2
 from pprint import pprint
 # from multiprocessing import Lock
-from threading import Lock
+# from threading import Lock
+from utils import Lock
 # from typing import Dict
 
 from camera import Frame
@@ -28,7 +29,7 @@ class Dbow():
 
     def query(self, frame: Frame, subset_inds=[]):
         with self.lock:
-            return db.query(frame.des, subset_inds, 1, -1)[0]
+            return self.db.query(frame.des, subset_inds, 1, -1)[0]
 
     def distance(self, f1, f2):
         return self.voc.distance(f1, f2)
