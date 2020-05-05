@@ -27,8 +27,14 @@ print(des1.shape)
 print(len(db.commonWords(des1, 0)))
 print(voc.distance(des1[0], des1[1]))
 print(voc.distance(des1[0], des1[0]))
-exit()
+# exit()
 result = db.query(des1, [0, 1], 1, -1)[0]
 print("result.Id", result.Id)
 print("result.Score", result.Score)
 print("result.minScoreInSelection", result.minScoreInSelection)
+
+
+db.erase(0)
+result = db.query(des1, [], 1, -1)[0]
+print("result.Id", result.Id)
+print("result.Score", result.Score)

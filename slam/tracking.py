@@ -135,6 +135,7 @@ class Tracker:
         return True
 
     def _ok_as_new_keyframe(self, frame, r):
+        # print("r", r)
         if self.t_from_last_kf > num_frames_from_last_kf and r < 0.9 and \
                         frame.des.shape[0] >= 50 and self.t_from_last_relocation > num_frames_from_last_relocation:
             return True
@@ -157,12 +158,13 @@ class Tracker:
                 return R, t
 
         if self.state == state_lost:
-            q = self.dbow.query(frame)
-            print("q.Score", q.Score)
-            if q.Score >= dbow_tresh:
-                self.kf_ref = self.cg.kfs[q.Id]
-                self.kf_ref.is_kf_ref(True)
-                self.state = state_relocated
+            id_kf, score = self.dbow.query(frame)
+            print("q.Score", score)
+            if score is not None:
+                if score >= dbow_tresh:
+                    self.kf_ref = self.cg.kfs[id_kf]
+                    self.kf_ref.is_kf_ref(True)
+                    self.state = state_relocated
 
         if self.state in (state_ok, state_relocated):
             r = 0.0

@@ -27,9 +27,19 @@ class Dbow():
                 self.entry2frame[i] = frame.id
                 self.frame2entry[frame.id] = i
 
+    def erase(self, i):
+        with self.lock:
+            j = self.frame2entry[i]
+            self.db.erase(j)
+            del self.frame2entry[i]
+            del self.entry2frame[j]
+
     def query(self, frame: Frame, subset_inds=[]):
         with self.lock:
-            return self.db.query(frame.des, subset_inds, 1, -1)[0]
+            qs = self.db.query(frame.des, subset_inds, 1, -1)
+            if len(qs) > 0:
+                return self.entry2frame[qs[0].Id], qs[0].Score
+            return None, None
 
     def distance(self, f1, f2):
         return self.voc.distance(f1, f2)

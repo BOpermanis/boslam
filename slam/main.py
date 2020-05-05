@@ -36,7 +36,7 @@ i_frame = 0
 while True:
     i_frame += 1
     frame = camera.get()
-    print("{}) tracker state = {}".format(i_frame, tracker.state))
+    print("{}) tracker state = {}, num_ks = {}, num_mps = {}".format(i_frame, tracker.state, tracker.cg.num_kfs(), tracker.cg.num_mps()))
     tracker.update(frame, kf_queue)
     cv2.imshow('my webcam', frame.rgb_frame)
     if cv2.waitKey(1) == 27:

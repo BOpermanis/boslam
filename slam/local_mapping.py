@@ -54,11 +54,12 @@ class LocalMapManager:
         voter = defaultdict(list)
         with self.cg.lock_edges_kf2mps and self.cg.lock_kf2kf_num_common_mps:
             ids = self.cg.get_local_map(id_kf, flag_with_input_kf=False)
-
+            print("len(ids)", len(ids))
             for i1, i2 in combinations(ids, 2):
                 num_common = self.cg.kf2kf_num_common_mps[key_common_mps(i2, i1)]
                 p1 = len(self.cg.edges_kf2mps[i1]) / num_common
                 p2 = len(self.cg.edges_kf2mps[i2]) / num_common
+                print(p1, p2)
                 if p1 > 0.9:
                     voter[i1].append(i2)
                 if p2 > 0.9:
@@ -92,7 +93,9 @@ class LocalMapManager:
                                 kfs_to_cull.add(id_kf1)
                                 set_close.remove(id_kf1)
 
+        print(111111111111111111)
         for id_kf in kfs_to_cull:
+            print(2222222222222)
             self.cg.erase_kf(self.cg.kfs[id_kf])
 
     def update(self, kf_queue: Queue, bow_queue: Queue):

@@ -64,8 +64,10 @@ class CovisibilityGraph():
 
             set_ids = set()
             with self.lock_edges_kf2kfs and self.lock_kf2kf_num_common_mps:
+                print("len(self.edges_kf2kfs)", len(self.edges_kf2kfs[kf.id]))
                 for id_kf1 in self.edges_kf2kfs[kf.id]:
                     # print(kf.id in self.edges_kf2kfs[id_kf1])
+                    print(333, self.kf2kf_num_common_mps[key_common_mps(id_kf1, kf.id)])
                     if self.kf2kf_num_common_mps[key_common_mps(id_kf1, kf.id)] >= 15:
                         set_ids.add(id_kf1)
                         for id_kf2 in self.edges_kf2kfs[id_kf1]:
@@ -79,7 +81,6 @@ class CovisibilityGraph():
                     set_ids.remove(kf.id)
 
             return set_ids
-
 
     def add_edge_to_cg(self, kf, mp, num_common=None):
         if isinstance(mp, KeyFrame):
@@ -96,15 +97,30 @@ class CovisibilityGraph():
             with self.lock_kf2kf_num_common_mps:
                 self.kf2kf_num_common_mps[key_common_mps(kf.id, mp.id)] = num_common
         else:
-
             assert kf.id in self.kfs and mp.id in self.mps
             with self.lock_edges_kf2mps:
                 self.edges_kf2mps[kf.id].add(mp.id)
+
+            with self.lock_edges_kf2kfs and self.lock_kf2kf_num_common_mps:
+                for id_kf1 in self.edges_mp2kfs[mp.id]:
+                    self.edges_kf2kfs[id_kf1].add(kf.id)
+                    self.edges_kf2kfs[kf.id].add(id_kf1)
+                    self.kf2kf_num_common_mps[key_common_mps(kf.id, id_kf1)] += 1
+
             with self.lock_edges_mp2kfs:
                 self.edges_mp2kfs[mp.id].add(kf.id)
 
+
     def get_loop_candidates(self):
         pass
+
+    def num_kfs(self):
+        with self.lock_kfs:
+            return len(self.kfs)
+
+    def num_mps(self):
+        with self.lock_mps:
+            return len(self.mps)
 
     def add_kf(self, frame: Frame):
         self.dbow.add(frame)
@@ -132,6 +148,8 @@ class CovisibilityGraph():
         return kf
 
     def erase_kf(self, kf):
+        self.dbow.erase(kf.id)
+
         with self.lock_edges_kf2mps and self.lock_edges_mp2kfs:
             for id_mp in self.edges_kf2mps[kf.id]:
                 self.edges_mp2kfs[id_mp].remove(kf.id)

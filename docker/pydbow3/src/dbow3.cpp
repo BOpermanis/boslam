@@ -139,6 +139,11 @@ public:
 		return database->add(features, NULL, NULL);
 	}
 
+    void erase(const int i){
+        DBoW3::WordId wid = (DBoW3::WordId) i;
+        database->erase(wid);
+    }
+
 	std::vector<DBoW3::Result> query(const  cv::Mat &features, const std::vector<int> target_inds, int max_results = 1, int max_id = -1) {
 		DBoW3::QueryResults results;
 //		std::cout << set_target.empty() << std::endl;
@@ -234,6 +239,7 @@ namespace fs {
 				.def("add", &Database::add)
 				.def("compare_bows", &Database::compare_bows, py::return_value_policy<py::return_by_value>())
 				.def("commonWords", &Database::commonWords, py::return_value_policy<py::return_by_value>())
+				.def("erase", &Database::erase)
 				.def("query", &Database::query, py::return_value_policy<py::return_by_value>());
 
 			py::class_<DBoW3::Result>("Result")
