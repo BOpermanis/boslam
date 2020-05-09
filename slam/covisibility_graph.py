@@ -64,10 +64,8 @@ class CovisibilityGraph():
 
             set_ids = set()
             with self.lock_edges_kf2kfs and self.lock_kf2kf_num_common_mps:
-                print("len(self.edges_kf2kfs)", len(self.edges_kf2kfs[kf.id]))
                 for id_kf1 in self.edges_kf2kfs[kf.id]:
                     # print(kf.id in self.edges_kf2kfs[id_kf1])
-                    print(333, self.kf2kf_num_common_mps[key_common_mps(id_kf1, kf.id)])
                     if self.kf2kf_num_common_mps[key_common_mps(id_kf1, kf.id)] >= 15:
                         set_ids.add(id_kf1)
                         for id_kf2 in self.edges_kf2kfs[id_kf1]:
@@ -110,7 +108,6 @@ class CovisibilityGraph():
             with self.lock_edges_mp2kfs:
                 self.edges_mp2kfs[mp.id].add(kf.id)
 
-
     def get_loop_candidates(self):
         pass
 
@@ -127,24 +124,32 @@ class CovisibilityGraph():
         kf = KeyFrame(frame, self.dbow, self)
 
         with self.lock_kfs and kf.lock and self.lock_mps:
-            self.kfs[frame.id] = kf
-            for i_feat, (feat, d2, d3, id_mp) in enumerate(zip(kf.des, kf.kp, kf.cloud_kp, kf.des2mp)):
+            self.kfs[kf.id] = kf
+            flag_first = True
+            for i_feat, (feat, d3, id_mp) in enumerate(zip(kf.des, kf.cloud_kp, kf.des2mp)):
 
                 if len(frame.t.shape) > 1:
-                    n = frame.t[:,0] - d3
+                    n = frame.t[:, 0] - d3
                 else:
                     n = frame.t - d3
 
                 norm = np.linalg.norm(n)
                 if norm > 0.0:
                     if id_mp == -1 or id_mp not in self.mps:
+                        if flag_first:
+                            print(222222, id_mp == -1, id_mp not in self.mps)
+                            flag_first = False
                         mp = MapPoint(feat, d3, n / norm, kf.id, self.dbow, self)
                         self.mps[mp.id] = mp
                         self.kfs[frame.id].des2mp[i_feat] = mp.id
                         id_mp = mp.id
                     else:
+                        if flag_first:
+                            print(1111111, id_mp == -1, id_mp not in self.mps)
+                            flag_first = False
                         self.mps[id_mp].add_observation(feat, n, kf.id)
                     self.add_edge_to_cg(kf, self.mps[id_mp])
+        print("kf.id", kf.id)
         return kf
 
     def erase_kf(self, kf):

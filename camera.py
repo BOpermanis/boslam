@@ -8,7 +8,7 @@ class Frame:
     def __init__(self, rgb_frame, cloud, kp=None, des=None, cloud_kp=None, kp_arr=None):
         self.rgb_frame = rgb_frame
         self.cloud = cloud
-        self.kp = kp
+        # self.kp = kp
         self.des = des
         self.cloud_kp = cloud_kp
         self.kp_arr = kp_arr

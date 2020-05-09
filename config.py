@@ -14,3 +14,20 @@ dbow_tresh = 0.2
 
 num_frames_from_last_kf = 3
 num_frames_from_last_relocation = 10
+
+
+import numpy as np
+cam_mat = np.asarray([
+    [384.23901367, 0., 322.43237305],
+    [0., 384.23901367, 239.65332031],
+    [0., 0., 1.]
+])
+
+distCoeffs = np.zeros((8, 1), dtype=np.float32)
+
+fx, fy, cx, cy = 384.239013671875, 384.239013671875, 322.432373046875, 239.6533203125
+f = 384.239013671875
+principal_point = 322.432373046875, 239.6533203125
+baseline = 0.06
+width = 640
+height = 480

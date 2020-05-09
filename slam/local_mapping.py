@@ -92,8 +92,18 @@ class LocalMapManager:
                             else:
                                 kfs_to_cull.add(id_kf1)
                                 set_close.remove(id_kf1)
+        with self.cg.lock_edges_mp2kfs:
+            lens = []
+            for v in self.cg.edges_mp2kfs.values():
+                lens.append(len(v))
 
-        print(111111111111111111)
+        num_obs = []
+        with self.cg.lock_mps:
+            max_mp_id = np.max(list(self.cg.mps.keys()))
+            for mp in self.cg.mps.values():
+                num_obs.append(len(mp.obs))
+
+        print(111111111111111111, np.max(lens), np.max(num_obs), max_mp_id)
         for id_kf in kfs_to_cull:
             print(2222222222222)
             self.cg.erase_kf(self.cg.kfs[id_kf])

@@ -20,14 +20,14 @@ class KeyFrame:
         self.id = frame.id
 
         self.cloud = frame.cloud
-        self.kp = frame.kp
+        # self.kp = frame.kp
         self.des = frame.des
         self.cloud_kp = frame.cloud_kp
         self.kp_arr = frame.kp_arr
         self.is_kf = False
 
         if frame.des2mp is None:
-            self.des2mp = -np.ones((len(frame.kp)), dtype=int)
+            self.des2mp = -np.ones((frame.kp_arr.shape[0]), dtype=int)
         else:
             self.des2mp = frame.des2mp
 

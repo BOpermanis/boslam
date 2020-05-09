@@ -33,11 +33,17 @@ for thread in threads:
     thread.start()
 
 i_frame = 0
+frames = []
 while True:
     i_frame += 1
     frame = camera.get()
     print("{}) tracker state = {}, num_ks = {}, num_mps = {}".format(i_frame, tracker.state, tracker.cg.num_kfs(), tracker.cg.num_mps()))
     tracker.update(frame, kf_queue)
+    # frames.append(frame)
     cv2.imshow('my webcam', frame.rgb_frame)
-    if cv2.waitKey(1) == 27:
+    if cv2.waitKey(1) == 27 or len(frames) == 100:
         break  # esc to quit
+
+# import pickle
+# with open("/home/slam_data/data_sets/realsense_frames.pickle", "wb") as conn:
+#     pickle.dump(frames, conn)

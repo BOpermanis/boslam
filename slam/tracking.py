@@ -117,7 +117,7 @@ class Tracker:
         inds = np.asarray(inds)
         ids_matching_kfs = np.asarray(ids_matching_kfs)
 
-        frame.des2mp = -np.ones((len(frame.kp)), dtype=int)
+        frame.des2mp = -np.ones((frame.kp_arr.shape[0]), dtype=int)
         with self.cg.lock_mps:
             for i_feat, id_mp in zip(inds_frame[inliers], ids_matching_mps[inds[inliers]]):
                 frame.des2mp[i_feat] = id_mp
