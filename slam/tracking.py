@@ -12,7 +12,7 @@ import g2o
 
 from config import d_hamming_max, min_matches_cg, dbow_tresh, num_frames_from_last_kf, num_frames_from_last_relocation
 from slam.covisibility_graph import CovisibilityGraph
-from camera import RsCamera
+# from camera import RsCamera
 # from slam.nodes import KeyFrame, MapPoint
 
 cos60 = np.cos(np.pi / 3)
@@ -28,7 +28,7 @@ state_relocated = 3
 
 class Tracker:
 
-    def __init__(self, cg: CovisibilityGraph, dbow: Dbow, cam: RsCamera):
+    def __init__(self, cg: CovisibilityGraph, dbow: Dbow, cam):
         self.state = state_map_init
         self.width = cam.width
         self.height = cam.height
@@ -37,6 +37,7 @@ class Tracker:
 
         self.t_from_last_kf = 0
         self.t_from_last_relocation = 0
+        self.t_absolute = 0
 
         self.cg = cg # covisibility graph
         self.dbow = dbow # bag of words database
@@ -136,17 +137,17 @@ class Tracker:
 
     def _ok_as_new_keyframe(self, frame, r):
         # print("r", r)
-        if self.t_from_last_kf > num_frames_from_last_kf and r < 0.9 and \
-                        frame.des.shape[0] >= 50 and self.t_from_last_relocation > num_frames_from_last_relocation:
+        if self.t_from_last_kf > num_frames_from_last_kf and r < 0.9 and frame.des.shape[0] >= 50 and \
+                (self.t_from_last_relocation > num_frames_from_last_relocation or self.t_absolute <= num_frames_from_last_relocation):
             return True
         return False
 
     def update(self, frame, kf_queue):
+        self.t_absolute += 1
         self.t_from_last_kf += 1
         self.t_from_last_relocation += 1
 
         if self.state == state_map_init:
-            print(len(frame.des))
             if len(frame.des) >= 50:
                 R, t = np.eye(3), np.zeros(3)
                 frame.setPose(R, t)
@@ -159,7 +160,6 @@ class Tracker:
 
         if self.state == state_lost:
             id_kf, score = self.dbow.query(frame)
-            print("q.Score", score)
             if score is not None:
                 if score >= dbow_tresh:
                     self.kf_ref = self.cg.kfs[id_kf]

@@ -132,7 +132,7 @@ class MapPoint:
                     for i2, (_, f2) in enumerate(self.obs):
                         if i1 < i2:
                             dists[i2, i1] = dists[i1, i2] = self.dbow.distance(f1, f2)
-                self.feat = self.obs[np.argmin(np.median(dists, axis=0))]
+                self.feat = self.obs[np.argmin(np.median(dists, axis=0))][1]
             self.n = (n + (self.n_obs - 1) * self.n) / self.n_obs
 
     def erase_observation(self, id_kf):
