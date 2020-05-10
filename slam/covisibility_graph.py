@@ -2,7 +2,7 @@ import numpy as np
 import cv2
 import g2o
 # from typing import Dict, Set, Tuple, List
-from collections import defaultdict
+from collections import defaultdict, Counter
 from itertools import combinations
 
 # from multiprocessing import Lock
@@ -122,12 +122,10 @@ class CovisibilityGraph():
     def add_kf(self, frame: Frame):
         self.dbow.add(frame)
         kf = KeyFrame(frame, self.dbow, self)
-
         with self.lock_kfs and kf.lock and self.lock_mps:
             self.kfs[kf.id] = kf
-            flag_first = True
-            for i_feat, (feat, d3, id_mp) in enumerate(zip(kf.des, kf.cloud_kp, kf.des2mp)):
 
+            for i_feat, (feat, d3, id_mp) in enumerate(zip(kf.des, kf.cloud_kp, kf.des2mp)):
                 if len(frame.t.shape) > 1:
                     n = frame.t[:, 0] - d3
                 else:
@@ -136,20 +134,13 @@ class CovisibilityGraph():
                 norm = np.linalg.norm(n)
                 if norm > 0.0:
                     if id_mp == -1 or id_mp not in self.mps:
-                        if flag_first:
-                            print(222222, id_mp == -1, id_mp not in self.mps)
-                            flag_first = False
                         mp = MapPoint(feat, d3, n / norm, kf.id, self.dbow, self)
                         self.mps[mp.id] = mp
                         self.kfs[frame.id].des2mp[i_feat] = mp.id
                         id_mp = mp.id
                     else:
-                        if flag_first:
-                            print(1111111, id_mp == -1, id_mp not in self.mps)
-                            flag_first = False
                         self.mps[id_mp].add_observation(feat, n, kf.id)
                     self.add_edge_to_cg(kf, self.mps[id_mp])
-        print("kf.id", kf.id)
         return kf
 
     def erase_kf(self, kf):
@@ -170,6 +161,9 @@ class CovisibilityGraph():
             del kf
 
     def erase_mp(self, mp):
+        if isinstance(mp, int):
+            with self.lock_mps:
+                mp = self.mps[mp]
         id_kfs = []
         with self.lock_edges_mp2kfs and self.lock_edges_kf2mps:
             for id_kf in self.edges_mp2kfs[mp.id]:
