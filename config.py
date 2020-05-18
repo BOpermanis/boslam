@@ -1,5 +1,11 @@
 data_dir = "/home/slam_data/data_sets/boslam_data"
 
+# culling params
+min_common_ratio = 0.9
+min_found_ratio = 0.25
+min_n_obs = 2
+# min_common_ratio = 0.9
+# min_found_ratio = 0.25
 
 # orbslam params
 d_hamming_max = 30

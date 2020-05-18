@@ -8,7 +8,7 @@ from collections import defaultdict
 
 from slam.covisibility_graph import CovisibilityGraph
 from slam.nodes import KeyFrame
-from config import d_hamming_max
+from config import d_hamming_max, min_common_ratio, min_found_ratio, min_n_obs
 from camera import Frame
 from slam.bow_db import Dbow
 from utils import key_common_mps
@@ -33,7 +33,7 @@ class LocalMapManager:
         mps_to_delete = []
         with self.cg.lock_mps:
             for mp in self.cg.mps.values():
-                if not (mp.get_found_ratio() >= 0.25 and (mp.n_obs >= 3 or mp.first_kf == id_kf)):
+                if not (mp.get_found_ratio() >= min_found_ratio and (mp.n_obs >= min_n_obs or mp.first_kf == id_kf)):
                     mps_to_delete.append(mp)
         for mp in mps_to_delete:
             self.cg.erase_mp(mp)
@@ -50,23 +50,31 @@ class LocalMapManager:
     def _local_kf_culling(self, id_kf):
         # !!! orbslam2 kodā ir cikls cauri kfs, katrai fičai iet cauri un skatās vai tas ir redundnt observation,
         # tad saskaita cik tādu daudz ir un skatās vai prop > 0.9, ja ir tad vnk izmet
-
         voter = defaultdict(list)
         with self.cg.lock_edges_kf2mps and self.cg.lock_kf2kf_num_common_mps:
             ids = self.cg.get_local_map(id_kf, flag_with_input_kf=False)
-            print("len(ids)", len(ids))
             for i1, i2 in combinations(ids, 2):
                 num_common = self.cg.kf2kf_num_common_mps[key_common_mps(i2, i1)]
-                p1 = len(self.cg.edges_kf2mps[i1]) / num_common
-                p2 = len(self.cg.edges_kf2mps[i2]) / num_common
-                print(p1, p2)
-                if p1 > 0.9:
-                    voter[i1].append(i2)
-                if p2 > 0.9:
-                    voter[i2].append(i1)
+                if num_common >= 15:
+                    p1 = num_common / len(self.cg.edges_kf2mps[i1])
+                    p2 = num_common / len(self.cg.edges_kf2mps[i2])
+                    if p1 > min_common_ratio:
+                        voter[i1].append(i2)
+                    if p2 > min_common_ratio:
+                        voter[i2].append(i1)
 
-        triples = sorted([(id_kf, l, len(l)) for id_kf, l in voter if len(l) > 2], key=lambda x: -x[1])
-        set_close = {*[_[0] for _ in triples]}
+        # from pprint import pprint
+        # pprint(voter)
+        # exit()
+        # from pprint import pprint
+        # pprint(voter)
+        # exit()
+        l1 = []
+        for id_kf, l in voter.items():
+            if len(l) > 2:
+                l1.append((id_kf, l, len(l)))
+
+        triples = sorted(l1, key=lambda x: -x[2])
         kfs_to_cull = {*[]}
 
         with self.cg.lock_edges_kf2mps:
@@ -75,37 +83,33 @@ class LocalMapManager:
                 if id_kf in kfs_to_cull:
                     continue
                 for id_kf1 in l:
-                    if id_kf1 in set_close:
+                    if id_kf1 not in kfs_to_cull:
                         #  tests kuru izmest + izmeshana no set_close
                         if len(voter[id_kf]) > len(voter[id_kf1]):
                             kfs_to_cull.add(id_kf)
-                            set_close.remove(id_kf)
                             break
                         elif len(voter[id_kf]) < len(voter[id_kf1]):
                             kfs_to_cull.add(id_kf1)
-                            set_close.remove(id_kf1)
                         else:
                             if len(self.cg.edges_kf2mps[id_kf]) < len(self.cg.edges_kf2mps[id_kf1]):
                                 kfs_to_cull.add(id_kf)
-                                set_close.remove(id_kf)
                                 break
                             else:
                                 kfs_to_cull.add(id_kf1)
-                                set_close.remove(id_kf1)
+
         with self.cg.lock_edges_mp2kfs:
             lens = []
             for v in self.cg.edges_mp2kfs.values():
                 lens.append(len(v))
-
         num_obs = []
         with self.cg.lock_mps:
-            max_mp_id = np.max(list(self.cg.mps.keys()))
+            # max_mp_id = np.max(list(self.cg.mps.keys()))
             for mp in self.cg.mps.values():
                 num_obs.append(len(mp.obs))
 
-        print(111111111111111111, np.max(lens), np.max(num_obs), max_mp_id)
+        # print(111111111111111111, np.max(lens), np.max(num_obs), max_mp_id)
         for id_kf in kfs_to_cull:
-            print(2222222222222)
+
             self.cg.erase_kf(self.cg.kfs[id_kf])
 
     def update(self, kf_queue: Queue, bow_queue: Queue):

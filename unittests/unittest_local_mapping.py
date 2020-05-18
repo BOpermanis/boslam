@@ -30,12 +30,21 @@ class LocalMapManagerMethods(unittest.TestCase):
         kf_queue = Queue()
         bow_queue = Queue()
 
-        for frame in frames:
+        kf_ids = set()
+
+        for frame in frames: #[:20]:
             tracker.update(frame, kf_queue)
+            kf_ids.update(cg.kfs)
 
-        for _ in range(100):
-            local_map_manager.update(kf_queue, bow_queue)
-
+            while kf_queue.qsize() > 0:
+                local_map_manager.update(kf_queue, bow_queue)
+        self.assertTrue(len(cg.kfs) < 5)
+        n_obs = [k.n_obs for k in cg.mps.values()]
+        l = [len(cg.edges_mp2kfs[k]) for k in cg.edges_mp2kfs]
+        print("np.min(n_obs), np.max(n_obs)", np.min(n_obs), np.max(n_obs))
+        print(np.min(l), np.max(l))
+        print(len(kf_ids), MapPoint.cnt)
+        print("len(cg.kfs), len(cg.mps)", len(cg.kfs), len(cg.mps))
 
 if __name__ == "__main__":
     unittest.main()
