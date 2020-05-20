@@ -31,6 +31,13 @@ class KeyFrame:
         else:
             self.des2mp = frame.des2mp
 
+        self.mp2kp = None
+
+    def make_mp2kp(self):
+        self.mp2kp = {}
+        for i, mp_id in enumerate(self.des2mp):
+            self.mp2kp[mp_id] = self.kp_arr[i, :]
+
     def is_kf_ref(self, flag=None):
         with self.lock:
             if flag is None:
@@ -169,3 +176,7 @@ class MapPoint:
             if n is None:
                 return self.n
             self.n = n
+
+    def idf(self):
+        with self.lock:
+            return self.id

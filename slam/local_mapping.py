@@ -43,9 +43,8 @@ class LocalMapManager:
         # this is done in tracking thread by this implementation
         pass
 
-    def _local_ba(self):
-        # TODO runs BA on local map
-        pass
+    def _local_ba(self, kf):
+        self.cg.optimize_local(kf)
 
     def _local_kf_culling(self, id_kf):
         # !!! orbslam2 kodā ir cikls cauri kfs, katrai fičai iet cauri un skatās vai tas ir redundnt observation,
@@ -63,12 +62,6 @@ class LocalMapManager:
                     if p2 > min_common_ratio:
                         voter[i2].append(i1)
 
-        # from pprint import pprint
-        # pprint(voter)
-        # exit()
-        # from pprint import pprint
-        # pprint(voter)
-        # exit()
         l1 = []
         for id_kf, l in voter.items():
             if len(l) > 2:
@@ -132,6 +125,6 @@ class LocalMapManager:
 
         self._new_points_creation()
 
-        self._local_ba()
+        self._local_ba(self.cg.kfs[id_kf])
 
         self._local_kf_culling(id_kf)

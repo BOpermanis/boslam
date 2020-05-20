@@ -45,6 +45,10 @@ class LocalMapManagerMethods(unittest.TestCase):
         print(np.min(l), np.max(l))
         print(len(kf_ids), MapPoint.cnt)
         print("len(cg.kfs), len(cg.mps)", len(cg.kfs), len(cg.mps))
+        for kf in cg.kfs.values():
+            self.assertTrue(np.linalg.norm(kf.R - np.eye(3)) < 0.01)
+            self.assertTrue(np.linalg.norm(kf.t - np.zeros((3,))) < 0.01)
+
 
 if __name__ == "__main__":
     unittest.main()

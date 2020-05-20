@@ -3,7 +3,7 @@ import cv2
 import g2o
 # from typing import Dict, Set, Tuple, List
 from collections import defaultdict, Counter
-from itertools import combinations
+from itertools import combinations, chain
 
 # from multiprocessing import Lock
 # from threading import Lock
@@ -13,10 +13,70 @@ from camera import Frame
 from utils import key_common_mps
 
 from slam.nodes import KeyFrame, MapPoint
+
 cos60 = np.cos(np.pi / 3)
 dmin = 0.1
 dmax = 20
 
+
+class BundleAdjustment(g2o.SparseOptimizer):
+    def __init__(self, ):
+        super().__init__()
+        solver = g2o.BlockSolverSE3(g2o.LinearSolverCSparseSE3())
+        solver = g2o.OptimizationAlgorithmLevenberg(solver)
+        super().set_algorithm(solver)
+
+    def optimize(self, max_iterations=20):
+        super().initialize_optimization()
+        super().set_verbose(True)
+        super().optimize(max_iterations)
+
+    def add_pose(self, kf: KeyFrame, cam, fixed=False):
+        pose_id, R, t = kf.idf(), kf.Rf(), kf.tf()
+        if len(t.shape) == 2:
+            t = t[:, 0]
+        pose_estimate = g2o.SE3Quat(R, t)
+        sbacam = g2o.SBACam(pose_estimate.orientation(), pose_estimate.position())
+        if hasattr(cam, 'fx'):
+            sbacam.set_cam(cam.fx, cam.fy, cam.cx, cam.cy, cam.baseline)
+        else:
+            cx, cy = cam.principal_point
+            fx, fy = cam.focal_length, cam.focal_length
+            sbacam.set_cam(fx, fy, cx, cy, cam.baseline)
+
+        v_se3 = g2o.VertexCam()
+        v_se3.set_id(pose_id * 2)   # internal id
+        v_se3.set_estimate(sbacam)
+        v_se3.set_fixed(fixed)
+        super().add_vertex(v_se3)
+
+    def add_point(self, mp: MapPoint, fixed=False, marginalized=True):
+        point_id, point = mp.idf(), mp.pt3df()
+        v_p = g2o.VertexSBAPointXYZ()
+        v_p.set_id(point_id * 2 + 1)
+        v_p.set_estimate(point)
+        v_p.set_marginalized(marginalized)
+        v_p.set_fixed(fixed)
+        super().add_vertex(v_p)
+
+    def add_edge(self, point_id, pose_id, measurement, information=np.identity(2), robust_kernel=g2o.RobustKernelHuber(np.sqrt(7.815))):   # 95% CI
+        edge = g2o.EdgeProjectP2MC()
+        edge.set_vertex(0, self.vertex(point_id * 2 + 1))
+        edge.set_vertex(1, self.vertex(pose_id * 2))
+        edge.set_measurement(measurement)   # projection
+        edge.set_information(information)
+
+        if robust_kernel is not None:
+            edge.set_robust_kernel(robust_kernel)
+        super().add_edge(edge)
+
+    def get_pose(self, pose_id):
+        m = self.vertex(pose_id * 2).estimate().matrix()
+        return m[:3, :3], m[:3, 3]
+
+    def get_point(self, point_id):
+        m = self.vertex(point_id * 2 + 1).estimate()
+        return m.T
 
 class CovisibilityGraph():
     def __init__(self, dbow, camera):
@@ -29,6 +89,10 @@ class CovisibilityGraph():
 
         self.dbow = dbow
         self.cam = g2o.CameraParameters(camera.f, camera.principal_point, camera.baseline)
+        # from pprint import pprint
+        # pprint(dir(self.cam))
+        # print(self.cam.focal_length)
+        # exit()
         self.cam.set_id(0)
         # super().add_parameter(self.cam)
 
@@ -52,7 +116,7 @@ class CovisibilityGraph():
         self.lock_edges_kf2mps = Lock()
         self.lock_edges_mp2kfs = Lock()
 
-    def get_local_map(self, kf, flag_with_input_kf=True):
+    def get_local_map(self, kf, flag_with_input_kf=True, flag_inner_outer=False):
         if isinstance(kf, int):
             with self.lock_kfs:
                 kf = self.kfs[kf]
@@ -62,23 +126,24 @@ class CovisibilityGraph():
                 if isinstance(kf, int):
                     kf = self.kfs[kf]
 
-            set_ids = set()
+            set_ids_inner = {kf.id}
+            set_ids_outter = set()
             with self.lock_edges_kf2kfs and self.lock_kf2kf_num_common_mps:
                 for id_kf1 in self.edges_kf2kfs[kf.id]:
-                    # print(kf.id in self.edges_kf2kfs[id_kf1])
                     if self.kf2kf_num_common_mps[key_common_mps(id_kf1, kf.id)] >= 15:
-                        set_ids.add(id_kf1)
+                        set_ids_inner.add(id_kf1)
                         for id_kf2 in self.edges_kf2kfs[id_kf1]:
                             if self.kf2kf_num_common_mps[key_common_mps(id_kf1, kf.id)] >= 15:
-                                set_ids.add(id_kf2)
+                                if id_kf2 not in set_ids_inner:
+                                    set_ids_outter.add(id_kf2)
 
-            if flag_with_input_kf:
-                set_ids.add(kf.id)
-            else:
-                if len(set_ids) > 0:
-                    set_ids.remove(kf.id)
+            if not flag_with_input_kf:
+                set_ids_inner.remove(kf.id)
 
-            return set_ids
+            if flag_inner_outer:
+                return set_ids_inner, set_ids_outter
+
+            return set_ids_inner.union(set_ids_outter)
 
     def add_edge_to_cg(self, kf, mp, num_common=None):
         if isinstance(mp, KeyFrame):
@@ -141,6 +206,7 @@ class CovisibilityGraph():
                     else:
                         self.mps[id_mp].add_observation(feat, n, kf.id)
                     self.add_edge_to_cg(kf, self.mps[id_mp])
+        kf.make_mp2kp()
         return kf
 
     def erase_kf(self, kf):
@@ -178,4 +244,57 @@ class CovisibilityGraph():
             del self.mps[mp.id]
             del self.edges_mp2kfs[mp.id]
             del mp
+
+    def optimize_local(self, kf: KeyFrame):
+        optimizer = BundleAdjustment()
+
+        with self.lock_kfs and self.lock_mps:
+            inner, outter = self.get_local_map(kf, flag_inner_outer=True, flag_with_input_kf=False)
+            if len(outter) == 0:
+                optimizer.add_pose(kf, self.cam, fixed=True)
+                if len(inner) == 0:
+                    print("nothing to optimize")
+                    return
+            else:
+                for i in outter:
+                    optimizer.add_pose(self.kfs[i], self.cam, fixed=True)
+
+            for i in inner:
+                optimizer.add_pose(self.kfs[i], self.cam, fixed=False)
+
+            # mps with more than 1 occ between pts
+            pairs = []
+            counter = Counter()
+            for i in chain([kf.id], inner, outter):
+                counter.update(self.edges_kf2mps[i])
+                pairs.extend(zip([i] * len(self.edges_kf2mps[i]), self.edges_kf2mps[i]))
+
+            for kf_id, mp_id in pairs:
+                if counter[mp_id] > 1:
+                    optimizer.add_point(self.mps[mp_id])
+                    pixels = self.kfs[kf_id].mp2kp[mp_id]
+                    optimizer.add_edge(mp_id, kf_id, pixels)
+                else:
+                    del counter[mp_id]
+
+            optimizer.optimize(5)
+
+            for i in chain([kf.id], inner, outter):
+                R, t = optimizer.get_pose(i)
+                self.kfs[i].Rf(R)
+                self.kfs[i].tf(t)
+
+            for i in counter:
+                t = optimizer.get_point(i)
+                self.mps[i].pt3df(t)
+
+            # print("len(inner), len(outter)", len(inner), len(outter))
+            # print(1111111111111)
+            # exit()
+
+
+
+
+
+
 
