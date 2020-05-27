@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 import pyrealsense2 as rs
-
+from utils import normalize_t_shape
 
 class Frame:
     cnt = 0
@@ -24,13 +24,14 @@ class Frame:
         self.see_vector = np.asarray((0.0, 0.0, 1.0))
 
     def setPose(self, R, t):
-        self.R, self.t = R, t
+        self.R, self.t = R, normalize_t_shape(t)
         self.see_vector = np.matmul(self.R, self.see_vector)
         self.see_vector /= np.linalg.norm(self.see_vector)
 
     def transform2global(self, R, t, prev_cloud_kp=None, new_inds_for_old=None, log=None):
         assert not self.flag_global_set
-        self.cloud_kp = np.matmul(self.cloud_kp, R) + t[:, 0]
+        t = normalize_t_shape(t)
+        self.cloud_kp = np.matmul(self.cloud_kp, R) + t
         self.flag_global_set = True
         self.setPose(R, t)
 

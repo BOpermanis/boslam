@@ -37,6 +37,13 @@ def Rt2se3(R, t):
     return se3
 
 
+def normalize_t_shape(t):
+    if len(t.shape) > 1:
+        return t[:, 0]
+    else:
+        return t
+
+
 def se32Rt(se3):
     return se3[:3, :3], se3[:3, 3]
 

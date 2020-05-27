@@ -63,6 +63,9 @@ class Tracker:
                                                   self.kf_ref.kp_arrf()[inds_kf, :].astype(np.float64),
                                                   self.cam_mat, self.dist_coefs,
                                                   flags=cv2.SOLVEPNP_EPNP)
+        if inliers is None:
+            return False, 0.0
+
         R = cv2.Rodrigues(R)[0]
 
         if len(inliers) < 15:
@@ -83,7 +86,7 @@ class Tracker:
                 for id_mp in self.cg.edges_kf2mps[id_kf]:
                     mp = self.cg.mps[id_mp]
                     # print(frame.R.shape, frame.t.shape)
-                    pose = g2o.SE3Quat(frame.R, frame.t[:, 0])
+                    pose = g2o.SE3Quat(frame.R, frame.t)
                     pixel = self.cam.cam_map(pose * mp.pt3d)
                     if 0 <= pixel[0] < self.width and 0 <= pixel[1] < self.height:
                         if np.dot(frame.see_vector, mp.nf()) < cos60:

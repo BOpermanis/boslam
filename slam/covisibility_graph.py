@@ -20,11 +20,12 @@ dmax = 20
 
 
 class BundleAdjustment(g2o.SparseOptimizer):
-    def __init__(self, ):
+    def __init__(self, cam):
         super().__init__()
         solver = g2o.BlockSolverSE3(g2o.LinearSolverCSparseSE3())
         solver = g2o.OptimizationAlgorithmLevenberg(solver)
         super().set_algorithm(solver)
+        self.cam = cam
 
     def optimize(self, max_iterations=20):
         super().initialize_optimization()
@@ -59,16 +60,20 @@ class BundleAdjustment(g2o.SparseOptimizer):
         v_p.set_fixed(fixed)
         super().add_vertex(v_p)
 
-    def add_edge(self, point_id, pose_id, measurement, information=np.identity(2), robust_kernel=g2o.RobustKernelHuber(np.sqrt(7.815))):   # 95% CI
+    def add_edge(self, mp, kf, measurement, information=np.identity(2), robust_kernel=g2o.RobustKernelHuber(np.sqrt(7.815))):   # 95% CI
         edge = g2o.EdgeProjectP2MC()
-        edge.set_vertex(0, self.vertex(point_id * 2 + 1))
-        edge.set_vertex(1, self.vertex(pose_id * 2))
-        edge.set_measurement(measurement)   # projection
-        edge.set_information(information)
+        point_id, pose_id = mp.idf(), kf.idf()
+        pose = g2o.SE3Quat(kf.Rf(), kf.tf())#[:, 0])
+        pixel = self.cam.cam_map(pose * mp.pt3d)
+        if 0 <= pixel[0] < 640 and 0 <= pixel[1] < 480:
+            edge.set_vertex(0, self.vertex(point_id * 2 + 1))
+            edge.set_vertex(1, self.vertex(pose_id * 2))
+            edge.set_measurement(measurement)   # projection
+            edge.set_information(information)
 
-        if robust_kernel is not None:
-            edge.set_robust_kernel(robust_kernel)
-        super().add_edge(edge)
+            if robust_kernel is not None:
+                edge.set_robust_kernel(robust_kernel)
+            super().add_edge(edge)
 
     def get_pose(self, pose_id):
         m = self.vertex(pose_id * 2).estimate().matrix()
@@ -133,15 +138,15 @@ class CovisibilityGraph():
                     if self.kf2kf_num_common_mps[key_common_mps(id_kf1, kf.id)] >= 15:
                         set_ids_inner.add(id_kf1)
                         for id_kf2 in self.edges_kf2kfs[id_kf1]:
-                            if self.kf2kf_num_common_mps[key_common_mps(id_kf1, kf.id)] >= 15:
-                                if id_kf2 not in set_ids_inner:
+                            if id_kf2 != kf.id:
+                                if self.kf2kf_num_common_mps[key_common_mps(id_kf2, kf.id)] >= 15:
                                     set_ids_outter.add(id_kf2)
 
             if not flag_with_input_kf:
                 set_ids_inner.remove(kf.id)
 
             if flag_inner_outer:
-                return set_ids_inner, set_ids_outter
+                return set_ids_inner, set_ids_outter.difference(set_ids_inner)
 
             return set_ids_inner.union(set_ids_outter)
 
@@ -191,11 +196,7 @@ class CovisibilityGraph():
             self.kfs[kf.id] = kf
 
             for i_feat, (feat, d3, id_mp) in enumerate(zip(kf.des, kf.cloud_kp, kf.des2mp)):
-                if len(frame.t.shape) > 1:
-                    n = frame.t[:, 0] - d3
-                else:
-                    n = frame.t - d3
-
+                n = frame.t - d3
                 norm = np.linalg.norm(n)
                 if norm > 0.0:
                     if id_mp == -1 or id_mp not in self.mps:
@@ -246,22 +247,22 @@ class CovisibilityGraph():
             del mp
 
     def optimize_local(self, kf: KeyFrame):
-        optimizer = BundleAdjustment()
+        optimizer = BundleAdjustment(self.cam)
 
         with self.lock_kfs and self.lock_mps:
             inner, outter = self.get_local_map(kf, flag_inner_outer=True, flag_with_input_kf=False)
             if len(outter) == 0:
-                optimizer.add_pose(kf, self.cam, fixed=True)
                 if len(inner) == 0:
                     print("nothing to optimize")
                     return
+                optimizer.add_pose(kf, self.cam, fixed=True)
             else:
+                optimizer.add_pose(kf, self.cam, fixed=False)
                 for i in outter:
                     optimizer.add_pose(self.kfs[i], self.cam, fixed=True)
 
             for i in inner:
                 optimizer.add_pose(self.kfs[i], self.cam, fixed=False)
-
             # mps with more than 1 occ between pts
             pairs = []
             counter = Counter()
@@ -269,11 +270,14 @@ class CovisibilityGraph():
                 counter.update(self.edges_kf2mps[i])
                 pairs.extend(zip([i] * len(self.edges_kf2mps[i]), self.edges_kf2mps[i]))
 
+            s = set()
             for kf_id, mp_id in pairs:
                 if counter[mp_id] > 1:
-                    optimizer.add_point(self.mps[mp_id])
+                    if mp_id not in s:
+                        s.add(mp_id)
+                        optimizer.add_point(self.mps[mp_id])
                     pixels = self.kfs[kf_id].mp2kp[mp_id]
-                    optimizer.add_edge(mp_id, kf_id, pixels)
+                    optimizer.add_edge(self.mps[mp_id], self.kfs[kf_id], pixels)
                 else:
                     del counter[mp_id]
 
@@ -287,10 +291,8 @@ class CovisibilityGraph():
             for i in counter:
                 t = optimizer.get_point(i)
                 self.mps[i].pt3df(t)
-
-            # print("len(inner), len(outter)", len(inner), len(outter))
-            # print(1111111111111)
-            # exit()
+        del optimizer
+        # TODO izmest outlaijerus
 
 
 

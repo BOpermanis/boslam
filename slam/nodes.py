@@ -1,11 +1,12 @@
 import numpy as np
 # from threading import Lock
-from utils import Lock
+from utils import Lock, normalize_t_shape
 from copy import deepcopy
 # import g2o
 # from camera import Frame
 # from slam.covisibility_graph import CovisibilityGraph
 # from slam.bow_db import Dbow
+
 
 class KeyFrame:
 
@@ -13,7 +14,7 @@ class KeyFrame:
         self.lock = Lock()
 
         self.R = frame.R
-        self.t = frame.t
+        self.t = normalize_t_shape(frame.t)
         self.cg = cg
         self.dbow = dbow
 
@@ -58,7 +59,7 @@ class KeyFrame:
         with self.lock:
             if t is None:
                 return self.t
-            self.t = t
+            self.t = normalize_t_shape(t)
 
     def cloudf(self, cloud=None):
         with self.lock:
@@ -109,7 +110,7 @@ class MapPoint:
         self.first_kf = id_kf # tikai prieksh mp culling
 
         self.n = n / np.linalg.norm(n)
-        self.pt3d = t
+        self.pt3d = normalize_t_shape(t)
         self.feat = feat
         self.n_obs = 1
         self.obs = [(id_kf, feat)]
@@ -169,7 +170,7 @@ class MapPoint:
         with self.lock:
             if pt3d is None:
                 return self.pt3d
-            self.pt3d = pt3d
+            self.pt3d = normalize_t_shape(self.pt3d)
 
     def nf(self, n=None):
         with self.lock:
