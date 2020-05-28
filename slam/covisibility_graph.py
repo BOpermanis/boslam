@@ -2,7 +2,7 @@ import numpy as np
 import cv2
 import g2o
 # from typing import Dict, Set, Tuple, List
-from collections import defaultdict, Counter
+from collections import defaultdict, Counter, OrderedDict
 from itertools import combinations, chain
 
 # from multiprocessing import Lock
@@ -25,6 +25,7 @@ class BundleAdjustment(g2o.SparseOptimizer):
         solver = g2o.BlockSolverSE3(g2o.LinearSolverCSparseSE3())
         solver = g2o.OptimizationAlgorithmLevenberg(solver)
         super().set_algorithm(solver)
+        super().verbose()
         self.cam = cam
 
     def optimize(self, max_iterations=20):
@@ -83,23 +84,13 @@ class BundleAdjustment(g2o.SparseOptimizer):
         m = self.vertex(point_id * 2 + 1).estimate()
         return m.T
 
+
 class CovisibilityGraph():
     def __init__(self, dbow, camera):
 
-        # g2o related
-        # super().__init__()
-        # solver = g2o.BlockSolverSE3(g2o.LinearSolverCSparseSE3())
-        # solver = g2o.OptimizationAlgorithmLevenberg(solver)
-        # super().set_algorithm(solver)
-
         self.dbow = dbow
         self.cam = g2o.CameraParameters(camera.f, camera.principal_point, camera.baseline)
-        # from pprint import pprint
-        # pprint(dir(self.cam))
-        # print(self.cam.focal_length)
-        # exit()
         self.cam.set_id(0)
-        # super().add_parameter(self.cam)
 
         # params
         self.width = camera.width
@@ -294,9 +285,60 @@ class CovisibilityGraph():
         del optimizer
         # TODO izmest outlaijerus
 
+    def maintain(self):
+        with self.lock_mps:
+            pass
+        with self.lock_kf2kf_num_common_mps:
+            pass
+
+    def get_stats(self):
+
+        stats = OrderedDict()
+
+        with self.lock_kfs:
+            stats["kfs_len"] = len(self.kfs)
+
+        with self.lock_mps:
+            stats["mps_len"] = len(self.mps)
+
+        with self.lock_edges_kf2mps:
+            l = [len(_) for _ in self.edges_kf2mps.values()]
+            if len(l) > 0:
+                stats["kf2mps_min"] = np.min(l)
+                stats["kf2mps_max"] = np.max(l)
+
+        with self.lock_edges_kf2kfs:
+            l = [len(_) for _ in self.edges_kf2kfs.values()]
+            if len(l) > 0:
+                stats["kf2kfs_min"] = np.min(l)
+                stats["kf2kfs_max"] = np.max(l)
+
+        with self.lock_edges_mp2kfs:
+            l = [len(_) for _ in self.edges_mp2kfs.values()]
+            if len(l) > 0:
+                stats["mp2kfs_min"] = np.min(l)
+                stats["mp2kfs_max"] = np.max(l)
+
+        with self.lock_kf2kf_num_common_mps and self.lock_edges_kf2mps:
+            if len(self.kf2kf_num_common_mps) > 0:
+                l = list(self.kf2kf_num_common_mps.values())
+                stats["num_common_mps_min"] = np.min(l)
+                stats["num_common_mps_max"] = np.max(l)
+                stats["num_common_mps_len"] = len(l)
+
+                a = []
+                for (i1, i2), n in self.kf2kf_num_common_mps.items():
+                    if len(self.edges_kf2mps[i1]) > 0:
+                        a.append(n / len(self.edges_kf2mps[i1]))
+                    if len(self.edges_kf2mps[i2]) > 0:
+                        a.append(n / len(self.edges_kf2mps[i2]))
+
+                stats["p_min"] = np.min(a)
+                stats["p_max"] = np.max(a)
+                stats["p_avg"] = np.average(a)
 
 
-
+        return stats
 
 
 

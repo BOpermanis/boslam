@@ -93,8 +93,6 @@ def ba_optimization(inds_cameras, inds_pnts, pixels, flag_verbose=True):
         R, t = np.random.normal(0, 2, size=(3, 3)), np.random.normal(0, 10, size=(3,))
         R, t = np.eye(3), np.zeros(3)
         pose_estimate = g2o.SE3Quat(R, t)
-        print(R.shape, t.shape)
-        exit()
         v_se3.set_estimate(pose_estimate)
         if i < 1:
             v_se3.set_fixed(True)

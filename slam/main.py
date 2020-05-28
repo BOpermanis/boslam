@@ -3,6 +3,8 @@ import numpy as np
 # from multiprocessing import Process, Queue
 from queue import Queue
 from threading import Thread
+from pprint import pprint
+from time import sleep
 
 from camera import RsCamera
 from slam.tracking import Tracker
@@ -62,11 +64,14 @@ def main(flag_use_camera=True, flag_visualize=False):
         print("{}) tracker state = {}, num_ks = {}, num_mps = {}".format(i_frame, tracker.state, tracker.cg.num_kfs(),
                                                                          tracker.cg.num_mps()))
         R, t = tracker.update(frame, kf_queue)
-
+        # if R is not None:
+        #     print(np.linalg.norm(R), np.linalg.norm(t))
+        # pprint(cg.get_stats())
+        # sleep(4)
         if flag_visualize:
             map_viewer.update(frame, R, t)
         # frames.append(frame)
-        cv2.imshow('my webcam', frame.rgb_frame)
+        # cv2.imshow('my webcam', frame.rgb_frame)
         if cv2.waitKey(1) == 27 or len(frames) == 100:
             break  # esc to quit
 
@@ -75,4 +80,4 @@ def main(flag_use_camera=True, flag_visualize=False):
             #     pickle.dump(frames, conn)
 
 if __name__ == "__main__":
-    main(flag_use_camera=False, flag_visualize=True)
+    main(flag_use_camera=True, flag_visualize=False)

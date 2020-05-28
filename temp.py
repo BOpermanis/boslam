@@ -1,3 +1,8 @@
-from typing import Dict, List
+import numpy as np
 
-a = Dict[int, List[int]]
+R = np.diag([1, 2, 3])
+t = np.asarray([0, 1, 2])
+
+
+
+print(pose)

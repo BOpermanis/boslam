@@ -160,17 +160,20 @@ class RsCamera:
 if __name__ == "__main__":
     # import matplotlib.pyplot as plt
 
-    cap = RsCamera()
+    cap = RsCamera(flag_return_with_features=1)
     i_frame = 0
     while True:
         i_frame += 1
         frame = cap.get()
-        if i_frame > 100:
-            break
+        # if i_frame > 100:
+        #     break
         # plt.scatter(cloud[:, 2], cloud[:, 4])
         # plt.show()
         # exit()
-        print(frame.rgb_frame.shape, frame.rgb_frame.dtype, np.min(frame.rgb_frame), np.max(frame.rgb_frame))
+        # print(frame.rgb_frame.shape, frame.rgb_frame.dtype, np.min(frame.rgb_frame), np.max(frame.rgb_frame))
+        print(frame.kp_arr.shape)
+        for kp in frame.kp_arr:
+            cv2.circle(frame.rgb_frame, tuple(kp), 3, (0, 255, 0))
         cv2.imshow('my webcam', frame.rgb_frame)
         if cv2.waitKey(1) == 27:
             break  # esc to quit

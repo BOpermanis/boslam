@@ -53,7 +53,10 @@ class Tracker:
     def _track_wrt_refkf(self, frame):
 
         matches = self.matcher.match(frame.des, self.kf_ref.desf())
-        inds_f, inds_kf = zip(*((_.queryIdx, _.trainIdx) for _ in matches if _.distance < d_hamming_max))
+        matches = [_ for _ in matches if _.distance < d_hamming_max]
+        if len(matches) == 0:
+            return False, 0.0
+        inds_f, inds_kf = zip(*((_.queryIdx, _.trainIdx) for _ in matches))
 
         if len(inds_f) < min_matches_cg:
             self.kf_ref.is_kf_ref(False)
@@ -98,6 +101,9 @@ class Tracker:
                                 feats.append(mp.featf())
                                 pts3d.append(mp.pt3df())
                                 self.cg.mps[id_mp].num_frames_visible_increment()
+
+        if len(feats) == 0:
+            return False
 
         feats = np.stack(feats)
         pts3d = np.stack(pts3d)
@@ -170,7 +176,7 @@ class Tracker:
                 if score >= dbow_tresh:
                     self.kf_ref = self.cg.kfs[id_kf]
                     self.kf_ref.is_kf_ref(True)
-                    self.state = state_relocated
+                    self.state = state_ok
 
         if self.state in (state_ok, state_relocated):
             r = 0.0

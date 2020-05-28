@@ -33,7 +33,8 @@ class LocalMapManager:
         mps_to_delete = []
         with self.cg.lock_mps:
             for mp in self.cg.mps.values():
-                if not (mp.get_found_ratio() >= min_found_ratio and (mp.n_obs >= min_n_obs or mp.first_kf == id_kf)):
+                # if not (mp.get_found_ratio() >= min_found_ratio and (mp.n_obs >= min_n_obs or mp.first_kf == id_kf)):
+                if not (mp.get_found_ratio() >= min_found_ratio and mp.n_obs >= min_n_obs):
                     mps_to_delete.append(mp)
         for mp in mps_to_delete:
             self.cg.erase_mp(mp)
