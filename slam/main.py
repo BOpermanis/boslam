@@ -9,10 +9,11 @@ from slam.tracking import Tracker
 from slam.local_mapping import LocalMapManager
 from slam.covisibility_graph import CovisibilityGraph
 from slam.bow_db import Dbow
+from visualization.slam_viewer import MapViewer
 import config
 
 
-def main(flag_use_camera=True):
+def main(flag_use_camera=True, flag_visualize=False):
     if flag_use_camera:
         camera = RsCamera(flag_return_with_features=1)
     else:
@@ -20,8 +21,12 @@ def main(flag_use_camera=True):
     dbow = Dbow()
     cg = CovisibilityGraph(dbow, camera)
 
+
     tracker = Tracker(cg, dbow, camera)
     local_map_manager = LocalMapManager(cg, dbow, camera)
+
+    if flag_visualize:
+        map_viewer = MapViewer(tracker, cg)
 
     kf_queue = Queue()
     bow_queue = Queue()
@@ -56,7 +61,10 @@ def main(flag_use_camera=True):
             frame = frames.pop()
         print("{}) tracker state = {}, num_ks = {}, num_mps = {}".format(i_frame, tracker.state, tracker.cg.num_kfs(),
                                                                          tracker.cg.num_mps()))
-        tracker.update(frame, kf_queue)
+        R, t = tracker.update(frame, kf_queue)
+
+        if flag_visualize:
+            map_viewer.update(frame, R, t)
         # frames.append(frame)
         cv2.imshow('my webcam', frame.rgb_frame)
         if cv2.waitKey(1) == 27 or len(frames) == 100:
@@ -67,4 +75,4 @@ def main(flag_use_camera=True):
             #     pickle.dump(frames, conn)
 
 if __name__ == "__main__":
-    main()
+    main(flag_use_camera=False, flag_visualize=True)

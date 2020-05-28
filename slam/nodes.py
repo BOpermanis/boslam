@@ -1,7 +1,6 @@
 import numpy as np
-# from threading import Lock
-from utils import Lock, normalize_t_shape
-from copy import deepcopy
+from utils import Lock, normalize_t_shape, Rt2se3
+# from copy import deepcopy
 # import g2o
 # from camera import Frame
 # from slam.covisibility_graph import CovisibilityGraph
@@ -54,6 +53,10 @@ class KeyFrame:
             if R is None:
                 return self.R
             self.R = R
+
+    def pose(self):
+        with self.lock:
+            return Rt2se3(self.R, self.t)
 
     def tf(self, t=None):
         with self.lock:

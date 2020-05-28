@@ -45,6 +45,7 @@ class Tracker:
 
         self.last_frame = None
         self.kf_ref = None
+        self.mps_visible = set()
 
     def _track_with_motion(self, frame):
         return False
@@ -120,6 +121,7 @@ class Tracker:
         ids_matching_mps = np.asarray(ids_matching_mps)
         inds = np.asarray(inds)
         ids_matching_kfs = np.asarray(ids_matching_kfs)
+        self.mps_visible.update(ids_matching_mps[inds[inliers]])
 
         frame.des2mp = -np.ones((frame.kp_arr.shape[0]), dtype=int)
         with self.cg.lock_mps:
@@ -146,6 +148,7 @@ class Tracker:
         return False
 
     def update(self, frame, kf_queue):
+        self.mps_visible.clear()
         self.t_absolute += 1
         self.t_from_last_kf += 1
         self.t_from_last_relocation += 1
