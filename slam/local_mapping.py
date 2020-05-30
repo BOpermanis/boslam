@@ -34,7 +34,7 @@ class LocalMapManager:
         with self.cg.lock_mps:
             for mp in self.cg.mps.values():
                 # if not (mp.get_found_ratio() >= min_found_ratio and (mp.n_obs >= min_n_obs or mp.first_kf == id_kf)):
-                if not (mp.get_found_ratio() >= min_found_ratio and mp.n_obs >= min_n_obs):
+                if not (mp.get_found_ratio() >= min_found_ratio): # and mp.n_obs >= min_n_obs):
                     mps_to_delete.append(mp)
         for mp in mps_to_delete:
             self.cg.erase_mp(mp)
@@ -50,9 +50,23 @@ class LocalMapManager:
     def _local_kf_culling(self, id_kf):
         # !!! orbslam2 kodā ir cikls cauri kfs, katrai fičai iet cauri un skatās vai tas ir redundnt observation,
         # tad saskaita cik tādu daudz ir un skatās vai prop > 0.9, ja ir tad vnk izmet
+        kfs_to_cull = []
+        ids = self.cg.get_local_map(id_kf, flag_with_input_kf=False)
+
+        with self.cg.lock_edges_kf2mps:
+            for id_kf1 in self.cg.edges_kf2mps:
+                if len(self.cg.edges_kf2mps[id_kf1]) < 15:
+                    kfs_to_cull.append(id_kf1)
+
+        with self.cg.lock_kfs:
+            for id_kf1 in kfs_to_cull:
+                if id_kf1 in self.cg.kfs:
+                    self.cg.erase_kf(self.cg.kfs[id_kf1])
+                if id_kf1 in ids:
+                    ids.remove(id_kf1)
+
         voter = defaultdict(list)
         with self.cg.lock_edges_kf2mps and self.cg.lock_kf2kf_num_common_mps:
-            ids = self.cg.get_local_map(id_kf, flag_with_input_kf=False)
             for i1, i2 in combinations(ids, 2):
                 num_common = self.cg.kf2kf_num_common_mps[key_common_mps(i2, i1)]
                 if num_common >= 15:
@@ -101,9 +115,7 @@ class LocalMapManager:
             for mp in self.cg.mps.values():
                 num_obs.append(len(mp.obs))
 
-        # print(111111111111111111, np.max(lens), np.max(num_obs), max_mp_id)
         for id_kf in kfs_to_cull:
-
             self.cg.erase_kf(self.cg.kfs[id_kf])
 
     def update(self, kf_queue: Queue, bow_queue: Queue):

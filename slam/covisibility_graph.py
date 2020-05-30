@@ -4,6 +4,7 @@ import g2o
 # from typing import Dict, Set, Tuple, List
 from collections import defaultdict, Counter, OrderedDict
 from itertools import combinations, chain
+from pprint import pprint
 
 # from multiprocessing import Lock
 # from threading import Lock
@@ -81,8 +82,11 @@ class BundleAdjustment(g2o.SparseOptimizer):
         return m[:3, :3], m[:3, 3]
 
     def get_point(self, point_id):
-        m = self.vertex(point_id * 2 + 1).estimate()
-        return m.T
+        m = self.vertex(point_id * 2 + 1)
+        # print(m.chi2())
+        # # pprint(dir(m.get_estimate_data()))
+        # exit()
+        return m.estimate().T
 
 
 class CovisibilityGraph():
@@ -212,10 +216,12 @@ class CovisibilityGraph():
             for id_kf in self.edges_kf2kfs[kf.id]:
                 del self.kf2kf_num_common_mps[key_common_mps(kf.id, id_kf)]
                 self.edges_kf2kfs[id_kf].remove(kf.id)
+
         with self.lock_kfs and self.lock_edges_kf2kfs and self.lock_edges_kf2mps:
             del self.edges_kf2kfs[kf.id]
             del self.edges_kf2mps[kf.id]
             del self.kfs[kf.id]
+
             del kf
 
     def erase_mp(self, mp):
@@ -285,21 +291,21 @@ class CovisibilityGraph():
         del optimizer
         # TODO izmest outlaijerus
 
-    def maintain(self):
-        with self.lock_mps:
-            pass
-        with self.lock_kf2kf_num_common_mps:
-            pass
-
     def get_stats(self):
 
         stats = OrderedDict()
 
         with self.lock_kfs:
+            l = list(self.kfs.keys())
             stats["kfs_len"] = len(self.kfs)
+            stats["kfs_min_id"] = np.min(l) if len(l) > 0 else None
+            stats["kfs_max_id"] = np.max(l) if len(l) > 0 else None
 
         with self.lock_mps:
-            stats["mps_len"] = len(self.mps)
+            l = list(self.mps.keys())
+            stats["mps_len"] = len(l)
+            stats["mps_min_id"] = np.min(l) if len(l) > 0 else None
+            stats["mps_max_id"] = np.max(l) if len(l) > 0 else None
 
         with self.lock_edges_kf2mps:
             l = [len(_) for _ in self.edges_kf2mps.values()]
@@ -333,10 +339,9 @@ class CovisibilityGraph():
                     if len(self.edges_kf2mps[i2]) > 0:
                         a.append(n / len(self.edges_kf2mps[i2]))
 
-                stats["p_min"] = np.min(a)
-                stats["p_max"] = np.max(a)
-                stats["p_avg"] = np.average(a)
-
+                stats["p_min"] = np.min(a) if len(a) > 0 else None
+                stats["p_max"] = np.max(a) if len(a) > 0 else None
+                stats["p_avg"] = np.average(a) if len(a) > 0 else None
 
         return stats
 

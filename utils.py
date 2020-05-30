@@ -18,17 +18,25 @@ class Lock:
 
     def acquire(self, *args):
         if not self.flag_locked:
-            self.lock.__enter__(*args)
+            try:
+                self.lock.__enter__(*args)
+            except:
+                pass
             self.flag_locked = True
 
     def release(self, *args):
         if self.flag_locked:
-            self.lock.__exit__(*args)
+            try:
+                self.lock.__exit__(*args)
+            except:
+                pass
             self.flag_locked = False
+
 
 def key_common_mps(i1, i2):
     assert i1 != i2
     return (i1, i2) if i1 < i2 else (i2, i1)
+
 
 def Rt2se3(R, t):
     se3 = np.eye(4)
@@ -43,6 +51,9 @@ def normalize_t_shape(t):
     else:
         return t
 
+def int2orb(i):
+    np.random.seed(i)
+    return np.random.randint(256, size=32).astype(np.uint8)
 
 def se32Rt(se3):
     return se3[:3, :3], se3[:3, 3]

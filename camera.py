@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 import pyrealsense2 as rs
-from utils import normalize_t_shape
+from utils import normalize_t_shape, int2orb
 
 class Frame:
     cnt = 0
@@ -60,7 +60,8 @@ class RsCamera:
         if self.flag_return_with_features == 1:
             self.feature_extractor = cv2.ORB_create(**self.orb_params)
         if self.flag_return_with_features == 2:
-            pass
+            self.ncol = 6
+            self.nrow = 9
         # Configure depth and color streams
         self.pipeline = rs.pipeline()
         config = rs.config()
@@ -136,18 +137,24 @@ class RsCamera:
 
         des, kp_arr, kp = None, None, None
         if self.flag_return_with_features == 1:
-            kp, des = self.feature_extractor.detectAndCompute(frame, mask=(depth_image > 0).astype(np.uint8))
+            kp, des = self.feature_extractor.detectAndCompute(frame, mask=(depth_image > 0).astype(np.uint8) * 255)
             kp_arr = np.asarray([tuple(map(int, k.pt)) for k in kp])
 
         if self.flag_return_with_features == 2:
-            _, corners = cv2.findChessboardCorners(frame, (8, 6), None)
+            _, corners = cv2.findChessboardCorners(frame, (self.ncol, self.nrow), None)
+            is_ok = False
             if corners is not None:
-                if corners.shape[0] == 48:
+                if corners.shape[0] == self.ncol * self.nrow:
+                    is_ok = True
                     corners = corners.astype(int)
                     kp_arr = np.asarray(
                         [(i, x, y) for i, (x, y) in enumerate(corners[:, 0, :]) if depth_image[y, x] > 0])
-                    des = kp_arr[:, 0]
+                    des = np.stack([int2orb(_) for _ in kp_arr[:, 0]])
                     kp_arr = kp_arr[:, 1:]
+
+            if not is_ok:
+                kp_arr = np.empty((0, 2))
+                des = np.empty((0, ))
 
         cloud = self.convert_depth_frame_to_pointcloud(depth_image, kp_arr)
 
@@ -172,6 +179,7 @@ if __name__ == "__main__":
         # exit()
         # print(frame.rgb_frame.shape, frame.rgb_frame.dtype, np.min(frame.rgb_frame), np.max(frame.rgb_frame))
         print(frame.kp_arr.shape)
+        # print(frame.des.shape, frame.des.dtype)
         for kp in frame.kp_arr:
             cv2.circle(frame.rgb_frame, tuple(kp), 3, (0, 255, 0))
         cv2.imshow('my webcam', frame.rgb_frame)

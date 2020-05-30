@@ -23,7 +23,6 @@ def main(flag_use_camera=True, flag_visualize=False):
     dbow = Dbow()
     cg = CovisibilityGraph(dbow, camera)
 
-
     tracker = Tracker(cg, dbow, camera)
     local_map_manager = LocalMapManager(cg, dbow, camera)
 
@@ -64,14 +63,18 @@ def main(flag_use_camera=True, flag_visualize=False):
         print("{}) tracker state = {}, num_ks = {}, num_mps = {}".format(i_frame, tracker.state, tracker.cg.num_kfs(),
                                                                          tracker.cg.num_mps()))
         R, t = tracker.update(frame, kf_queue)
-        # if R is not None:
-        #     print(np.linalg.norm(R), np.linalg.norm(t))
-        # pprint(cg.get_stats())
+
+        if R is not None:
+            print(np.linalg.norm(t))
+        stats = cg.get_stats()
+        # print(frame.kp_arr.shape)
+        # print(stats['mps_min_id'], stats['mps_max_id'])
+        # print(stats['kfs_min_id'], stats['kfs_max_id'])
         # sleep(4)
         if flag_visualize:
             map_viewer.update(frame, R, t)
         # frames.append(frame)
-        # cv2.imshow('my webcam', frame.rgb_frame)
+        cv2.imshow('my webcam', frame.rgb_frame)
         if cv2.waitKey(1) == 27 or len(frames) == 100:
             break  # esc to quit
 

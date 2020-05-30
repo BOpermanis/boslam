@@ -3,7 +3,7 @@ import cv2
 from pprint import pprint
 from collections import Counter
 
-from typing import Dict, Set, Tuple, List
+# from typing import Dict, Set, Tuple, List
 # pprint([a for a in dir(cv2) if "pnp" in a.lower()])
 # print(cv2.SOLVEPNP_EPNP)
 # exit()
@@ -172,8 +172,10 @@ class Tracker:
 
         if self.state == state_lost:
             id_kf, score = self.dbow.query(frame)
+            print("score", score)
             if score is not None:
                 if score >= dbow_tresh:
+                    print(111111111111111111111)
                     self.kf_ref = self.cg.kfs[id_kf]
                     self.kf_ref.is_kf_ref(True)
                     self.state = state_ok
@@ -207,6 +209,9 @@ class Tracker:
             self.last_frame = frame
         else:
             self.last_frame = None
+
+        if len(self.cg.kfs) == 0 or len(self.cg.mps) == 0:
+            self.state = state_map_init
 
         return frame.R, frame.t
 
