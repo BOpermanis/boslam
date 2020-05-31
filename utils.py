@@ -18,18 +18,12 @@ class Lock:
 
     def acquire(self, *args):
         if not self.flag_locked:
-            try:
-                self.lock.__enter__(*args)
-            except:
-                pass
+            self.lock.__enter__(*args)
             self.flag_locked = True
 
     def release(self, *args):
         if self.flag_locked:
-            try:
-                self.lock.__exit__(*args)
-            except:
-                pass
+            self.lock.__exit__(*args)
             self.flag_locked = False
 
 

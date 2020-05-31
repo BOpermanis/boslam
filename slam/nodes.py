@@ -1,5 +1,6 @@
 import numpy as np
 from utils import Lock, normalize_t_shape, Rt2se3
+from config import min_n_obs
 # from copy import deepcopy
 # import g2o
 # from camera import Frame
@@ -131,6 +132,12 @@ class MapPoint:
     def get_found_ratio(self):
         with self.lock:
             return self.num_frames_found / self.num_frames_visible
+
+    def check_n_obs(self):
+        with self.lock:
+            if self.num_frames_visible <= min_n_obs:
+                return True
+            return self.n_obs >= min_n_obs
 
     def add_observation(self, feat, n, id_kf):
         with self.lock:

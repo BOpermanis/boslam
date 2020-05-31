@@ -87,7 +87,7 @@ class Tracker:
         pts3d = []
         with self.cg.lock_mps and self.cg.lock_edges_kf2mps:
             for id_kf in self.cg.get_local_map(self.kf_ref):
-                for id_mp in self.cg.edges_kf2mps[id_kf]:
+                for id_mp in list(self.cg.edges_kf2mps[id_kf]):
                     mp = self.cg.mps[id_mp]
                     # print(frame.R.shape, frame.t.shape)
                     pose = g2o.SE3Quat(frame.R, frame.t)
@@ -136,10 +136,11 @@ class Tracker:
                 self.cg.mps[id_mp].num_frames_found_increment()
 
         # matched frame features and matching mappoints
-        id_new_kf_ref = Counter(ids_matching_kfs[inds[inliers]]).most_common(1)[0][0]
         with self.cg.lock_kfs:
-            self.kf_ref = self.cg.kfs[id_new_kf_ref]
-            self.kf_ref.is_kf_ref(True)
+            for id_new_kf_ref, _ in Counter(ids_matching_kfs[inds[inliers]]).most_common(100):
+                if id_new_kf_ref in self.cg.kfs:
+                    self.kf_ref = self.cg.kfs[id_new_kf_ref]
+                    self.kf_ref.is_kf_ref(True)
 
         R = cv2.Rodrigues(R)[0]
         frame.setPose(R, t)
@@ -175,7 +176,6 @@ class Tracker:
             print("score", score)
             if score is not None:
                 if score >= dbow_tresh:
-                    print(111111111111111111111)
                     self.kf_ref = self.cg.kfs[id_kf]
                     self.kf_ref.is_kf_ref(True)
                     self.state = state_ok

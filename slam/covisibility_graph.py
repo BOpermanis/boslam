@@ -9,7 +9,7 @@ from pprint import pprint
 # from multiprocessing import Lock
 # from threading import Lock
 from utils import Lock
-from config import d_hamming_max
+from config import d_hamming_max, chi2_sig_value
 from camera import Frame
 from utils import key_common_mps
 
@@ -27,6 +27,7 @@ class BundleAdjustment(g2o.SparseOptimizer):
         solver = g2o.OptimizationAlgorithmLevenberg(solver)
         super().set_algorithm(solver)
         super().verbose()
+        self.set_edges = set()
         self.cam = cam
 
     def optimize(self, max_iterations=20):
@@ -62,11 +63,12 @@ class BundleAdjustment(g2o.SparseOptimizer):
         v_p.set_fixed(fixed)
         super().add_vertex(v_p)
 
-    def add_edge(self, mp, kf, measurement, information=np.identity(2), robust_kernel=g2o.RobustKernelHuber(np.sqrt(7.815))):   # 95% CI
+    def add_edge(self, mp, kf, measurement, information=np.identity(2), robust_kernel=g2o.RobustKernelHuber(np.sqrt(chi2_sig_value))):   # 95% CI
         edge = g2o.EdgeProjectP2MC()
         point_id, pose_id = mp.idf(), kf.idf()
         pose = g2o.SE3Quat(kf.Rf(), kf.tf())#[:, 0])
         pixel = self.cam.cam_map(pose * mp.pt3d)
+        self.set_edges.add((point_id, pose_id))
         if 0 <= pixel[0] < 640 and 0 <= pixel[1] < 480:
             edge.set_vertex(0, self.vertex(point_id * 2 + 1))
             edge.set_vertex(1, self.vertex(pose_id * 2))
@@ -82,11 +84,17 @@ class BundleAdjustment(g2o.SparseOptimizer):
         return m[:3, :3], m[:3, 3]
 
     def get_point(self, point_id):
-        m = self.vertex(point_id * 2 + 1)
-        # print(m.chi2())
-        # # pprint(dir(m.get_estimate_data()))
-        # exit()
-        return m.estimate().T
+        return self.vertex(point_id * 2 + 1).estimate().T
+
+    def outlier_edges(self):
+        bad_edges = []
+        for e in self.edges():
+            if e.chi2() > chi2_sig_value:
+                id_mp, id_kf = [_.id() for _ in e.vertices()]
+                id_mp = int((id_mp - 1) / 2)
+                id_kf = int(id_kf / 2)
+                bad_edges.append((id_kf, id_mp))
+        return bad_edges
 
 
 class CovisibilityGraph():
@@ -221,7 +229,6 @@ class CovisibilityGraph():
             del self.edges_kf2kfs[kf.id]
             del self.edges_kf2mps[kf.id]
             del self.kfs[kf.id]
-
             del kf
 
     def erase_mp(self, mp):
@@ -229,23 +236,33 @@ class CovisibilityGraph():
             with self.lock_mps:
                 mp = self.mps[mp]
         id_kfs = []
-        with self.lock_edges_mp2kfs and self.lock_edges_kf2mps:
+        with self.lock_mps and self.lock_edges_mp2kfs and self.lock_edges_kf2mps and self.lock_kf2kf_num_common_mps:
             for id_kf in self.edges_mp2kfs[mp.id]:
                 self.edges_kf2mps[id_kf].remove(mp.id)
                 id_kfs.append(id_kf)
 
-        with self.lock_kf2kf_num_common_mps:
             for i1, i2 in combinations(id_kfs, 2):
                 self.kf2kf_num_common_mps[key_common_mps(i2, i1)] -= 1
 
-        with self.lock_mps and self.lock_edges_mp2kfs:
             del self.mps[mp.id]
             del self.edges_mp2kfs[mp.id]
             del mp
 
+    def erase_edge(self, id_kf, id_mp):
+        with self.lock_edges_mp2kfs and self.lock_kf2kf_num_common_mps and self.lock_edges_kf2kfs and self.lock_edges_kf2mps:
+            for i1 in self.edges_mp2kfs[id_mp]:
+                if i1 != id_kf:
+                    key = key_common_mps(i1, id_kf)
+                    self.kf2kf_num_common_mps[key] -= 1
+                    if self.kf2kf_num_common_mps[key] == 0:
+                        self.edges_kf2kfs[i1].remove(id_kf)
+                        self.edges_kf2kfs[id_kf].remove(i1)
+
+            self.edges_mp2kfs[id_mp].remove(id_kf)
+            self.edges_kf2mps[id_kf].remove(id_mp)
+
     def optimize_local(self, kf: KeyFrame):
         optimizer = BundleAdjustment(self.cam)
-
         with self.lock_kfs and self.lock_mps:
             inner, outter = self.get_local_map(kf, flag_inner_outer=True, flag_with_input_kf=False)
             if len(outter) == 0:
@@ -288,8 +305,12 @@ class CovisibilityGraph():
             for i in counter:
                 t = optimizer.get_point(i)
                 self.mps[i].pt3df(t)
+
+        bad_edges = optimizer.outlier_edges()
+        for id_kf, id_mp in bad_edges:
+            self.erase_edge(id_kf, id_mp)
+
         del optimizer
-        # TODO izmest outlaijerus
 
     def get_stats(self):
 
