@@ -3,12 +3,14 @@ import pandas as pd
 import time
 from config import data_dir
 import cv2
+import threading
 from threading import Lock as Luck
+
 
 class Lock:
     def __init__(self):
         self.lock = Luck()
-        self.flag_locked = False
+        self.thread_locked = set()
 
     def __enter__(self, *args):
         self.acquire(*args)
@@ -17,14 +19,16 @@ class Lock:
         self.release(*args)
 
     def acquire(self, *args):
-        if not self.flag_locked:
+        thread_name = threading.current_thread().name
+        if thread_name not in self.thread_locked:
             self.lock.__enter__(*args)
-            self.flag_locked = True
+            self.thread_locked.add(thread_name)
 
     def release(self, *args):
-        if self.flag_locked:
+        thread_name = threading.current_thread().name
+        if thread_name in self.thread_locked:
             self.lock.__exit__(*args)
-            self.flag_locked = False
+            self.thread_locked.remove(thread_name)
 
 
 def key_common_mps(i1, i2):
@@ -121,3 +125,37 @@ class Visualizer:
         self.identities = new_identities
         self._visualize_pts(frame_ob.rgb_frame, self.identities, self.pts)
         return frame_ob.rgb_frame
+
+if __name__ == "__main__":
+    import threading
+    from threading import Thread
+    from time import sleep
+    lock = Lock()
+
+    def delete(s):
+        print(threading.current_thread().name)
+        with lock:
+            del s['a']
+
+    def read(s):
+        print(threading.current_thread().name == '2')
+        with lock:
+            # doin_stuff()
+            print(s['a'])
+
+    s = {"a": 1111}
+
+    threads = [
+        Thread(target=delete, args=(s,)),
+        Thread(target=read, args=(s,))
+    ]
+
+    for t in threads:
+        t.start()
+
+    for t in threads:
+        t.join()
+
+    # read(s, lambda: delete(s))
+
+

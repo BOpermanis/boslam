@@ -216,16 +216,14 @@ class CovisibilityGraph():
     def erase_kf(self, kf):
         self.dbow.erase(kf.id)
 
-        with self.lock_edges_kf2mps and self.lock_edges_mp2kfs:
+        with self.lock_edges_kf2mps and self.lock_edges_mp2kfs and self.lock_edges_kf2kfs and self.lock_kf2kf_num_common_mps and self.lock_kfs:
             for id_mp in self.edges_kf2mps[kf.id]:
                 self.edges_mp2kfs[id_mp].remove(kf.id)
 
-        with self.lock_edges_kf2kfs and self.lock_kf2kf_num_common_mps:
             for id_kf in self.edges_kf2kfs[kf.id]:
                 del self.kf2kf_num_common_mps[key_common_mps(kf.id, id_kf)]
                 self.edges_kf2kfs[id_kf].remove(kf.id)
 
-        with self.lock_kfs and self.lock_edges_kf2kfs and self.lock_edges_kf2mps:
             del self.edges_kf2kfs[kf.id]
             del self.edges_kf2mps[kf.id]
             del self.kfs[kf.id]
