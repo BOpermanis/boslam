@@ -161,7 +161,7 @@ class Tracker:
         self.t_from_last_relocation += 1
 
         if self.state == state_map_init:
-            if len(frame.des) >= 50:
+            if len(frame.des) >= 30:
                 R, t = np.eye(3), np.zeros(3)
                 frame.setPose(R, t)
                 kf = self.cg.add_kf(frame)

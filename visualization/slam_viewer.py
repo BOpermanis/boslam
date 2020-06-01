@@ -83,6 +83,8 @@ class MapViewer(object):
         self.view_thread.start()
 
     def update(self, frame: Frame, R, t, refresh=False):
+        if R is None or t is None:
+            return
         while not self.q_refresh.empty():
             refresh = self.q_refresh.get()
 
@@ -177,9 +179,10 @@ class MapViewer(object):
 
         if self.config is None:
             viewpoint_x = 0
-            viewpoint_y = -500  # -10
-            viewpoint_z = -100  # -0.1
-            viewpoint_f = 2000
+            r = 3
+            viewpoint_y = -int(500)  # -10
+            viewpoint_z = -int(100)  # -0.1
+            viewpoint_f = int(r * 2000)
             camera_width = 1.
             width, height = 350, 250
         else:
@@ -190,9 +193,9 @@ class MapViewer(object):
             camera_width = self.config.view_camera_width
             width = self.config.view_image_width
             height = self.config.view_image_height
-
+        r = 1/3
         proj = pangolin.ProjectionMatrix(
-            1024, 768, viewpoint_f, viewpoint_f, 512, 389, 0.1, 5000)
+            int(r * 1024), int(r * 768), viewpoint_f, viewpoint_f, int(r * 512), int(r * 389), 0.1, 5000)
         look_view = pangolin.ModelViewLookAt(
             viewpoint_x, viewpoint_y, viewpoint_z, 0, 0, 0, 0, -1, 0)
 

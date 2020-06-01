@@ -126,6 +126,38 @@ class Visualizer:
         self._visualize_pts(frame_ob.rgb_frame, self.identities, self.pts)
         return frame_ob.rgb_frame
 
+class Plotter:
+    def __init__(self, w=640, h=480):
+        self.w = w
+        self.h = h
+        self.img = np.ones((h, w, 3), dtype=np.uint8)
+        self.vals = []
+        self.x = None
+
+    def update(self, val):
+        self.vals.append(val)
+        if len(self.vals) > 200:
+            self.vals.pop(0)
+        if len(self.vals) < 2:
+            return
+        self.img.fill(255)
+        self.x = np.linspace(start=0, stop=self.w, num=len(self.vals), dtype=int)
+        vals = np.asarray(self.vals)
+        m, M = np.min(vals), np.max(vals)
+        vals = (self.h - self.h * (vals - m) / (M - m)).astype(int)
+        if m < 0 < M:
+            y0 = int(self.h - self.h * (0 - m) / (M - m))
+            cv2.line(self.img, (0, y0), (self.w, y0), (0, 0, 0), 1)
+        for i in range(len(self.x) - 1):
+            x, y = self.x[i], vals[i]
+            x1, y1 = self.x[i + 1], vals[i + 1]
+            cv2.line(self.img, (x, y), (x1, y1), (0, 0, 0), 1)
+
+        cv2.putText(self.img, str(m), (0, self.h - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 1)
+        cv2.putText(self.img, str(M), (0, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 1)
+        return self.img
+
+
 if __name__ == "__main__":
     import threading
     from threading import Thread

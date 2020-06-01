@@ -27,13 +27,14 @@ class Frame:
         self.R, self.t = R, normalize_t_shape(t)
         self.see_vector = np.matmul(self.R, self.see_vector)
         self.see_vector /= np.linalg.norm(self.see_vector)
+        # self.transform2global(R, t)
 
     def transform2global(self, R, t, prev_cloud_kp=None, new_inds_for_old=None, log=None):
-        assert not self.flag_global_set
+        # assert not self.flag_global_set
         t = normalize_t_shape(t)
         self.cloud_kp = np.matmul(self.cloud_kp, R) + t
         self.flag_global_set = True
-        self.setPose(R, t)
+        # self.setPose(R, t)
 
         if log is not None:
             log['3d_point_diff'] = np.average(np.linalg.norm(self.cloud_kp[new_inds_for_old] - prev_cloud_kp, axis=1))
@@ -61,7 +62,7 @@ class RsCamera:
             self.feature_extractor = cv2.ORB_create(**self.orb_params)
         if self.flag_return_with_features == 2:
             self.ncol = 6
-            self.nrow = 9
+            self.nrow = 8
         # Configure depth and color streams
         self.pipeline = rs.pipeline()
         config = rs.config()
@@ -167,7 +168,7 @@ class RsCamera:
 if __name__ == "__main__":
     # import matplotlib.pyplot as plt
 
-    cap = RsCamera(flag_return_with_features=1)
+    cap = RsCamera(flag_return_with_features=2)
     i_frame = 0
     while True:
         i_frame += 1

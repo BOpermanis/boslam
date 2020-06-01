@@ -13,11 +13,12 @@ from slam.covisibility_graph import CovisibilityGraph
 from slam.bow_db import Dbow
 from visualization.slam_viewer import MapViewer
 import config
+from utils import Plotter
 
 
-def main(flag_use_camera=True, flag_visualize=False):
+def main(flag_use_camera=True, flag_visualize=False, flag_plot=False):
     if flag_use_camera:
-        camera = RsCamera(flag_return_with_features=1)
+        camera = RsCamera(flag_return_with_features=2)
     else:
         camera = config
     dbow = Dbow()
@@ -52,6 +53,9 @@ def main(flag_use_camera=True, flag_visualize=False):
         with open("/home/slam_data/data_sets/realsense_frames.pickle", "rb") as conn:
             frames = pickle.load(conn)
 
+    if flag_plot:
+        plotter = Plotter()
+
     while True:
         i_frame += 1
         if flag_use_camera:
@@ -66,7 +70,7 @@ def main(flag_use_camera=True, flag_visualize=False):
 
         if R is not None:
             print(np.linalg.norm(t))
-        stats = cg.get_stats()
+        # stats = cg.get_stats()
         # print(frame.kp_arr.shape)
         # print(stats['mps_min_id'], stats['mps_max_id'])
         # print(stats['kfs_min_id'], stats['kfs_max_id'])
@@ -74,13 +78,23 @@ def main(flag_use_camera=True, flag_visualize=False):
         if flag_visualize:
             map_viewer.update(frame, R, t)
         # frames.append(frame)
-        cv2.imshow('my webcam', frame.rgb_frame)
+
+        if flag_plot:
+            if t is not None:
+                plot = plotter.update(t[0])
+
+        for kp in frame.kp_arr:
+            cv2.circle(frame.rgb_frame, tuple(kp), 3, (0, 255, 0))
+        frame_arr = frame.rgb_frame
+        if flag_plot:
+            if plot is not None:
+                frame_arr = np.concatenate([frame_arr, plot], axis=1)
+        cv2.imshow('my webcam', frame_arr)
         if cv2.waitKey(1) == 27 or len(frames) == 100:
             break  # esc to quit
-
             # import pickle
             # with open("/home/slam_data/data_sets/realsense_frames.pickle", "wb") as conn:
             #     pickle.dump(frames, conn)
 
 if __name__ == "__main__":
-    main(flag_use_camera=True, flag_visualize=False)
+    main(flag_use_camera=True, flag_visualize=False, flag_plot=True)
