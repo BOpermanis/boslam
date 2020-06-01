@@ -4,6 +4,7 @@ import time
 from config import data_dir
 import cv2
 import threading
+import math
 from threading import Lock as Luck
 
 
@@ -145,18 +146,33 @@ class Plotter:
         vals = np.asarray(self.vals)
         m, M = np.min(vals), np.max(vals)
         vals = (self.h - self.h * (vals - m) / (M - m)).astype(int)
-        if m < 0 < M:
+
+        if m < 0 < M and M - m > 0:
             y0 = int(self.h - self.h * (0 - m) / (M - m))
             cv2.line(self.img, (0, y0), (self.w, y0), (0, 0, 0), 1)
+
         for i in range(len(self.x) - 1):
             x, y = self.x[i], vals[i]
             x1, y1 = self.x[i + 1], vals[i + 1]
-            cv2.line(self.img, (x, y), (x1, y1), (0, 0, 0), 1)
+            if x > 0 and y > 0 and y1 > 0 and x1 > 0:
+                cv2.line(self.img, (x, y), (x1, y1), (0, 0, 0), 1)
 
         cv2.putText(self.img, str(m), (0, self.h - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 1)
         cv2.putText(self.img, str(M), (0, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 1)
         return self.img
 
+
+def R2angles(R):
+    cos_beta = math.sqrt(R[2, 1]*R[2, 1] + R[2, 2]*R[2, 2])
+    if cos_beta < 1e-6:
+        alpha = math.atan2(R[1, 0], R[0, 0])
+        beta = math.atan2(-R[2, 0], cos_beta)
+        gamma = math.atan2(R[2, 1], R[2, 2])
+    else:
+        alpha = math.atan2(R[1, 0], R[0, 0])
+        beta = math.atan2(-R[2, 0], cos_beta)
+        gamma = 0
+    return np.asarray([alpha, beta, gamma])
 
 if __name__ == "__main__":
     import threading

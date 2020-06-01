@@ -10,7 +10,7 @@ from collections import Counter
 from slam.bow_db import Dbow
 import g2o
 
-from config import d_hamming_max, min_matches_cg, dbow_tresh, num_frames_from_last_kf, num_frames_from_last_relocation
+from config import d_hamming_max, min_matches_cg, dbow_tresh, num_frames_from_last_kf, num_frames_from_last_relocation, min_kp_in_frame
 from slam.covisibility_graph import CovisibilityGraph
 # from camera import RsCamera
 # from slam.nodes import KeyFrame, MapPoint
@@ -148,9 +148,9 @@ class Tracker:
         return True
 
     def _ok_as_new_keyframe(self, frame, r):
-        # print("r", r)
-        if self.t_from_last_kf > num_frames_from_last_kf and r < 0.9 and frame.des.shape[0] >= 50 and \
+        if self.t_from_last_kf > num_frames_from_last_kf and r < 0.9 and frame.des.shape[0] >= min_kp_in_frame and \
                 (self.t_from_last_relocation > num_frames_from_last_relocation or self.t_absolute <= num_frames_from_last_relocation):
+            self.t_from_last_kf = 0
             return True
         return False
 
@@ -161,7 +161,7 @@ class Tracker:
         self.t_from_last_relocation += 1
 
         if self.state == state_map_init:
-            if len(frame.des) >= 30:
+            if len(frame.des) >= min_kp_in_frame:
                 R, t = np.eye(3), np.zeros(3)
                 frame.setPose(R, t)
                 kf = self.cg.add_kf(frame)
@@ -173,7 +173,6 @@ class Tracker:
 
         if self.state == state_lost:
             id_kf, score = self.dbow.query(frame)
-            print("score", score)
             if score is not None:
                 if score >= dbow_tresh:
                     self.kf_ref = self.cg.kfs[id_kf]

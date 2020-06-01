@@ -13,12 +13,12 @@ from slam.covisibility_graph import CovisibilityGraph
 from slam.bow_db import Dbow
 from visualization.slam_viewer import MapViewer
 import config
-from utils import Plotter
+from utils import Plotter, R2angles
 
 
 def main(flag_use_camera=True, flag_visualize=False, flag_plot=False):
     if flag_use_camera:
-        camera = RsCamera(flag_return_with_features=2)
+        camera = RsCamera(flag_return_with_features=1)
     else:
         camera = config
     dbow = Dbow()
@@ -81,7 +81,9 @@ def main(flag_use_camera=True, flag_visualize=False, flag_plot=False):
 
         if flag_plot:
             if t is not None:
+                angles = R2angles(R)
                 plot = plotter.update(t[0])
+                # plot = plotter.update(angles[0])
 
         for kp in frame.kp_arr:
             cv2.circle(frame.rgb_frame, tuple(kp), 3, (0, 255, 0))

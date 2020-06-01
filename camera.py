@@ -27,7 +27,7 @@ class Frame:
         self.R, self.t = R, normalize_t_shape(t)
         self.see_vector = np.matmul(self.R, self.see_vector)
         self.see_vector /= np.linalg.norm(self.see_vector)
-        # self.transform2global(R, t)
+        self.transform2global(R, t)
 
     def transform2global(self, R, t, prev_cloud_kp=None, new_inds_for_old=None, log=None):
         # assert not self.flag_global_set

@@ -293,7 +293,7 @@ class CovisibilityGraph():
                 else:
                     del counter[mp_id]
 
-            optimizer.optimize(5)
+            optimizer.optimize(7)
 
             for i in chain([kf.id], inner, outter):
                 R, t = optimizer.get_pose(i)
