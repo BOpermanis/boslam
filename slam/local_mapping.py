@@ -138,6 +138,6 @@ class LocalMapManager:
 
         self._new_points_creation()
 
-        self._local_ba(self.cg.kfs[id_kf])
+        # self._local_ba(self.cg.kfs[id_kf])
 
         self._local_kf_culling(id_kf)

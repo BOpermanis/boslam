@@ -7,7 +7,7 @@ min_common_ratio = 0.9
 min_found_ratio = 0.25
 min_n_obs = 3
 
-min_kp_in_frame = 50
+min_kp_in_frame = 40
 
 
 # orbslam params

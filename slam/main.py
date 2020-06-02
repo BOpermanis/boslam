@@ -5,6 +5,7 @@ from queue import Queue
 from threading import Thread
 from pprint import pprint
 from time import sleep
+from copy import deepcopy
 
 from camera import RsCamera
 from slam.tracking import Tracker
@@ -18,7 +19,7 @@ from utils import Plotter, R2angles
 
 def main(flag_use_camera=True, flag_visualize=False, flag_plot=False):
     if flag_use_camera:
-        camera = RsCamera(flag_return_with_features=1)
+        camera = RsCamera(flag_return_with_features=2)
     else:
         camera = config
     dbow = Dbow()
@@ -66,23 +67,24 @@ def main(flag_use_camera=True, flag_visualize=False, flag_plot=False):
             frame = frames.pop()
         print("{}) tracker state = {}, num_ks = {}, num_mps = {}".format(i_frame, tracker.state, tracker.cg.num_kfs(),
                                                                          tracker.cg.num_mps()))
+        # frames.append(deepcopy(frame))
+
         R, t = tracker.update(frame, kf_queue)
 
-        if R is not None:
-            print(np.linalg.norm(t))
+        # if R is not None:
+        #     print(np.linalg.norm(t))
         # stats = cg.get_stats()
-        # print(frame.kp_arr.shape)
+        # print(stats['mps_avg_vec'])
         # print(stats['mps_min_id'], stats['mps_max_id'])
         # print(stats['kfs_min_id'], stats['kfs_max_id'])
         # sleep(4)
         if flag_visualize:
             map_viewer.update(frame, R, t)
-        # frames.append(frame)
-
+        plot = None
         if flag_plot:
             if t is not None:
                 angles = R2angles(R)
-                plot = plotter.update(t[0])
+                plot = plotter.update(t[0], flag_map_reset=tracker.state==0)
                 # plot = plotter.update(angles[0])
 
         for kp in frame.kp_arr:
@@ -92,11 +94,13 @@ def main(flag_use_camera=True, flag_visualize=False, flag_plot=False):
             if plot is not None:
                 frame_arr = np.concatenate([frame_arr, plot], axis=1)
         cv2.imshow('my webcam', frame_arr)
-        if cv2.waitKey(1) == 27 or len(frames) == 100:
-            break  # esc to quit
+        if cv2.waitKey(1) == 27: # or len(frames) == 100:
             # import pickle
-            # with open("/home/slam_data/data_sets/realsense_frames.pickle", "wb") as conn:
+            # with open("/home/slam_data/data_sets/realsense_frames_chessboard.pickle", "wb") as conn:
             #     pickle.dump(frames, conn)
+            break  # esc to quit
+        # sleep(0.1)
+
 
 if __name__ == "__main__":
     main(flag_use_camera=True, flag_visualize=False, flag_plot=True)

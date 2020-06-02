@@ -134,8 +134,10 @@ class Plotter:
         self.img = np.ones((h, w, 3), dtype=np.uint8)
         self.vals = []
         self.x = None
+        self.t_since_reinit = 0
 
-    def update(self, val):
+    def update(self, val, flag_map_reset=False):
+        self.t_since_reinit += 1
         self.vals.append(val)
         if len(self.vals) > 200:
             self.vals.pop(0)
@@ -145,6 +147,8 @@ class Plotter:
         self.x = np.linspace(start=0, stop=self.w, num=len(self.vals), dtype=int)
         vals = np.asarray(self.vals)
         m, M = np.min(vals), np.max(vals)
+        m = min(0, m)
+        M = max(0, M)
         vals = (self.h - self.h * (vals - m) / (M - m)).astype(int)
 
         if m < 0 < M and M - m > 0:
@@ -156,6 +160,12 @@ class Plotter:
             x1, y1 = self.x[i + 1], vals[i + 1]
             if x > 0 and y > 0 and y1 > 0 and x1 > 0:
                 cv2.line(self.img, (x, y), (x1, y1), (0, 0, 0), 1)
+        if flag_map_reset:
+            self.t_since_reinit = 0
+
+        if self.t_since_reinit < len(self.vals):
+            x = int(self.w * (len(self.vals) - self.t_since_reinit) / len(self.vals))
+            cv2.line(self.img, (x, 0), (x, self.h), (255, 0, 0), 2)
 
         cv2.putText(self.img, str(m), (0, self.h - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 1)
         cv2.putText(self.img, str(M), (0, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 1)

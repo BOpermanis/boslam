@@ -14,6 +14,7 @@ from config import d_hamming_max, min_matches_cg, dbow_tresh, num_frames_from_la
 from slam.covisibility_graph import CovisibilityGraph
 # from camera import RsCamera
 # from slam.nodes import KeyFrame, MapPoint
+from slam.optimizer import CamOnlyBA
 
 cos60 = np.cos(np.pi / 3)
 dmin = 0.1
@@ -63,14 +64,16 @@ class Tracker:
             self.state = state_lost
             return False, 0.0
 
-        is_ok, R, t, inliers = cv2.solvePnPRansac(frame.cloud_kp[inds_f, :],
-                                                  self.kf_ref.kp_arrf()[inds_kf, :].astype(np.float64),
-                                                  self.cam_mat, self.dist_coefs,
-                                                  flags=cv2.SOLVEPNP_EPNP)
+        is_ok, R, t, inliers = CamOnlyBA(frame.kp_arr[inds_f, :], self.kf_ref.cloud_kpf()[inds_kf, :], self.cam, frame.R, frame.t)
+        # exit()
+        # is_ok, R, t, inliers = cv2.solvePnPRansac(frame.cloud_kp[inds_f, :],
+        #                                           self.kf_ref.kp_arrf()[inds_kf, :].astype(np.float64),
+        #                                           self.cam_mat, self.dist_coefs,
+        #                                           flags=cv2.SOLVEPNP_EPNP)
         if inliers is None:
             return False, 0.0
 
-        R = cv2.Rodrigues(R)[0]
+        # R = cv2.Rodrigues(R)[0]
 
         if len(inliers) < 15:
             return False, 0.0
@@ -114,10 +117,13 @@ class Tracker:
 
         inds_frame, inds = zip(*((_.queryIdx, _.trainIdx) for _ in matches))
 
-        is_ok, R, t, inliers = cv2.solvePnPRansac(pts3d[inds, :],
-                                                  frame.kp_arr[inds_frame, :].astype(np.float64),
-                                                  self.cam_mat, self.dist_coefs,
-                                                  flags=cv2.SOLVEPNP_EPNP)
+        is_ok, R, t, inliers = CamOnlyBA(frame.kp_arr[inds_frame, :], pts3d[inds, :], self.cam,
+                                         frame.R, frame.t)
+
+        # is_ok, R, t, inliers = cv2.solvePnPRansac(pts3d[inds, :],
+        #                                           frame.kp_arr[inds_frame, :].astype(np.float64),
+        #                                           self.cam_mat, self.dist_coefs,
+        #                                           flags=cv2.SOLVEPNP_EPNP)
 
         if not is_ok or len(inliers) < 15:
             return False
@@ -142,7 +148,7 @@ class Tracker:
                     self.kf_ref = self.cg.kfs[id_new_kf_ref]
                     self.kf_ref.is_kf_ref(True)
 
-        R = cv2.Rodrigues(R)[0]
+        # R = cv2.Rodrigues(R)[0]
         frame.setPose(R, t)
 
         return True
@@ -174,6 +180,7 @@ class Tracker:
         if self.state == state_lost:
             id_kf, score = self.dbow.query(frame)
             if score is not None:
+                print("score", score)
                 if score >= dbow_tresh:
                     self.kf_ref = self.cg.kfs[id_kf]
                     self.kf_ref.is_kf_ref(True)

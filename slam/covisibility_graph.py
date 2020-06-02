@@ -14,88 +14,11 @@ from camera import Frame
 from utils import key_common_mps
 
 from slam.nodes import KeyFrame, MapPoint
+from slam.optimizer import BundleAdjustment
 
 cos60 = np.cos(np.pi / 3)
 dmin = 0.1
 dmax = 20
-
-
-class BundleAdjustment(g2o.SparseOptimizer):
-    def __init__(self, cam):
-        super().__init__()
-        solver = g2o.BlockSolverSE3(g2o.LinearSolverCSparseSE3())
-        solver = g2o.OptimizationAlgorithmLevenberg(solver)
-        super().set_algorithm(solver)
-        super().verbose()
-        self.set_edges = set()
-        self.cam = cam
-
-    def optimize(self, max_iterations=20):
-        super().initialize_optimization()
-        super().set_verbose(True)
-        super().optimize(max_iterations)
-
-    def add_pose(self, kf: KeyFrame, cam, fixed=False):
-        pose_id, R, t = kf.idf(), kf.Rf(), kf.tf()
-        if len(t.shape) == 2:
-            t = t[:, 0]
-        pose_estimate = g2o.SE3Quat(R, t)
-        sbacam = g2o.SBACam(pose_estimate.orientation(), pose_estimate.position())
-        if hasattr(cam, 'fx'):
-            sbacam.set_cam(cam.fx, cam.fy, cam.cx, cam.cy, cam.baseline)
-        else:
-            cx, cy = cam.principal_point
-            fx, fy = cam.focal_length, cam.focal_length
-            sbacam.set_cam(fx, fy, cx, cy, cam.baseline)
-
-        v_se3 = g2o.VertexCam()
-        v_se3.set_id(pose_id * 2)   # internal id
-        v_se3.set_estimate(sbacam)
-        v_se3.set_fixed(fixed)
-        super().add_vertex(v_se3)
-
-    def add_point(self, mp: MapPoint, fixed=False, marginalized=True):
-        point_id, point = mp.idf(), mp.pt3df()
-        v_p = g2o.VertexSBAPointXYZ()
-        v_p.set_id(point_id * 2 + 1)
-        v_p.set_estimate(point)
-        v_p.set_marginalized(marginalized)
-        v_p.set_fixed(fixed)
-        super().add_vertex(v_p)
-
-    def add_edge(self, mp, kf, measurement, information=np.identity(2), robust_kernel=g2o.RobustKernelHuber(np.sqrt(chi2_sig_value))):   # 95% CI
-        edge = g2o.EdgeProjectP2MC()
-        point_id, pose_id = mp.idf(), kf.idf()
-        pose = g2o.SE3Quat(kf.Rf(), kf.tf())#[:, 0])
-        pixel = self.cam.cam_map(pose * mp.pt3d)
-        self.set_edges.add((point_id, pose_id))
-        if 0 <= pixel[0] < 640 and 0 <= pixel[1] < 480:
-            edge.set_vertex(0, self.vertex(point_id * 2 + 1))
-            edge.set_vertex(1, self.vertex(pose_id * 2))
-            edge.set_measurement(measurement)   # projection
-            edge.set_information(information)
-
-            if robust_kernel is not None:
-                edge.set_robust_kernel(robust_kernel)
-            super().add_edge(edge)
-
-    def get_pose(self, pose_id):
-        m = self.vertex(pose_id * 2).estimate().matrix()
-        return m[:3, :3], m[:3, 3]
-
-    def get_point(self, point_id):
-        return self.vertex(point_id * 2 + 1).estimate().T
-
-    def outlier_edges(self):
-        bad_edges = []
-        for e in self.edges():
-            if e.chi2() > chi2_sig_value:
-                id_mp, id_kf = [_.id() for _ in e.vertices()]
-                id_mp = int((id_mp - 1) / 2)
-                id_kf = int(id_kf / 2)
-                bad_edges.append((id_kf, id_mp))
-        return bad_edges
-
 
 class CovisibilityGraph():
     def __init__(self, dbow, camera):
@@ -325,6 +248,13 @@ class CovisibilityGraph():
             stats["mps_len"] = len(l)
             stats["mps_min_id"] = np.min(l) if len(l) > 0 else None
             stats["mps_max_id"] = np.max(l) if len(l) > 0 else None
+            pts = []
+            if len(l) > 0:
+                for id_mp in self.mps:
+                    pts.append(self.mps[id_mp].pt3df())
+                stats["mps_avg_vec"] = np.average(np.stack(pts), axis=0)
+            else:
+                stats["mps_avg_vec"] = None
 
         with self.lock_edges_kf2mps:
             l = [len(_) for _ in self.edges_kf2mps.values()]
