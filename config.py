@@ -9,7 +9,6 @@ min_n_obs = 3
 
 min_kp_in_frame = 40
 
-
 # orbslam params
 d_hamming_max = 30
 

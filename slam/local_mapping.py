@@ -33,8 +33,7 @@ class LocalMapManager:
         mps_to_delete = []
         with self.cg.lock_mps:
             for mp in self.cg.mps.values():
-                # if not (mp.get_found_ratio() >= min_found_ratio and (mp.n_obs >= min_n_obs or mp.first_kf == id_kf)):
-                if not (mp.get_found_ratio() >= min_found_ratio and mp.check_n_obs()):
+                if mp.get_found_ratio() < min_found_ratio and mp.check_n_obs():
                     mps_to_delete.append(mp)
         for mp in mps_to_delete:
             self.cg.erase_mp(mp)
@@ -125,19 +124,20 @@ class LocalMapManager:
         mutates covisibility graph structure
         adds bow of the last processed kf to a queue for loop closing
         """
-
         id_kf = kf_queue.get()
 
-        self._insert_new_kf(id_kf)
+        if id_kf is not None:
+            self._insert_new_kf(id_kf)
 
-        self.dbow.add(self.cg.kfs[id_kf])
+            self.dbow.add(self.cg.kfs[id_kf])
 
-        bow_queue.put(id_kf)
+            bow_queue.put(id_kf)
 
         self._recent_mps_culling(id_kf)
 
-        self._new_points_creation()
+        if id_kf is not None:
+            self._new_points_creation()
 
-        # self._local_ba(self.cg.kfs[id_kf])
+            self._local_ba(self.cg.kfs[id_kf])
 
-        self._local_kf_culling(id_kf)
+            self._local_kf_culling(id_kf)

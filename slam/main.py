@@ -19,7 +19,7 @@ from utils import Plotter, R2angles
 
 def main(flag_use_camera=True, flag_visualize=False, flag_plot=False):
     if flag_use_camera:
-        camera = RsCamera(flag_return_with_features=2)
+        camera = RsCamera(flag_return_with_features=1)
     else:
         camera = config
     dbow = Dbow()

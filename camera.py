@@ -148,8 +148,11 @@ class RsCamera:
                 if corners.shape[0] == self.ncol * self.nrow:
                     is_ok = True
                     corners = corners.astype(int)
-                    kp_arr = np.asarray(
-                        [(i, x, y) for i, (x, y) in enumerate(corners[:, 0, :]) if depth_image[y, x] > 0])
+                    indx = np.argsort(corners[:, 0, 0])
+                    indy = np.argsort(corners[:, 0, 1])
+                    kp_arr = [(i, x, y) for i, (x, y) in enumerate(corners[:, 0, :]) if depth_image[y, x] > 0]
+                    kp_arr = sorted(kp_arr, key=lambda x: indx[x[0]] * 1000 + indy[x[0]] * 1000)
+                    kp_arr = np.asarray(kp_arr)
                     des = np.stack([int2orb(_) for _ in kp_arr[:, 0]])
                     kp_arr = kp_arr[:, 1:]
 

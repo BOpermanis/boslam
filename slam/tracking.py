@@ -51,7 +51,7 @@ class Tracker:
     def _track_with_motion(self, frame):
         return False
 
-    def _track_wrt_refkf(self, frame):
+    def _track_wrt_refkf(self, frame, flag_use_pnp=False):
 
         matches = self.matcher.match(frame.des, self.kf_ref.desf())
         matches = [_ for _ in matches if _.distance < d_hamming_max]
@@ -64,17 +64,22 @@ class Tracker:
             self.state = state_lost
             return False, 0.0
 
-        is_ok, R, t, inliers = CamOnlyBA(frame.kp_arr[inds_f, :], self.kf_ref.cloud_kpf()[inds_kf, :], self.cam, frame.R, frame.t)
-        # exit()
-        # is_ok, R, t, inliers = cv2.solvePnPRansac(frame.cloud_kp[inds_f, :],
-        #                                           self.kf_ref.kp_arrf()[inds_kf, :].astype(np.float64),
-        #                                           self.cam_mat, self.dist_coefs,
-        #                                           flags=cv2.SOLVEPNP_EPNP)
+        if flag_use_pnp:
+            is_ok, R, t, inliers = cv2.solvePnPRansac(frame.cloud_kp[inds_f, :],
+                                                      self.kf_ref.kp_arrf()[inds_kf, :].astype(np.float64),
+                                                      self.cam_mat, self.dist_coefs,
+                                                      flags=cv2.SOLVEPNP_EPNP)
+        else:
+            is_ok, R, t, inliers = CamOnlyBA(frame.kp_arr[inds_f, :], self.kf_ref.cloud_kpf()[inds_kf, :], self.cam, frame.R, frame.t)
+
         if inliers is None:
             return False, 0.0
 
         # R = cv2.Rodrigues(R)[0]
-
+        # stats = self.cg.get_stats(flag_unique_mp_feats=True)
+        # print("mps_unique_mp_feats", stats['mps_unique_mp_feats'])
+        # print("ratio inliers", len(inliers) / len(inds_kf), stats['mps_unique_mp_feats'] / stats["mps_len"])
+        print(11111111111111111111111111111111111, len(inliers))
         if len(inliers) < 15:
             return False, 0.0
 
@@ -104,6 +109,9 @@ class Tracker:
                                 feats.append(mp.featf())
                                 pts3d.append(mp.pt3df())
                                 self.cg.mps[id_mp].num_frames_visible_increment()
+
+            if len(feats) > 0:
+                print(444, len(set(ids_matching_mps)) / len(self.cg.mps))
 
         if len(feats) == 0:
             return False
@@ -193,7 +201,7 @@ class Tracker:
                 is_ok = self._track_with_motion(frame)
 
             if not is_ok:
-                is_ok, r = self._track_wrt_refkf(frame)
+                is_ok, r = self._track_wrt_refkf(frame, flag_use_pnp=state_relocated == self.state)
                 if not is_ok:
                     self.kf_ref.is_kf_ref(False)
                     self.state = state_lost
@@ -210,6 +218,8 @@ class Tracker:
                     kf.is_kf_ref(True)
                     self.kf_ref = kf
                     kf_queue.put(kf.id)
+                elif self.t_from_last_kf > num_frames_from_last_kf:
+                    kf_queue.put(None)
 
         if self.state == state_ok:
             self.last_frame = frame

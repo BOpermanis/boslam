@@ -5,6 +5,7 @@ import g2o
 from collections import defaultdict, Counter, OrderedDict
 from itertools import combinations, chain
 from pprint import pprint
+from scipy.spatial import distance_matrix
 
 # from multiprocessing import Lock
 # from threading import Lock
@@ -233,7 +234,7 @@ class CovisibilityGraph():
 
         del optimizer
 
-    def get_stats(self):
+    def get_stats(self, flag_unique_mp_feats=False):
 
         stats = OrderedDict()
 
@@ -255,6 +256,33 @@ class CovisibilityGraph():
                 stats["mps_avg_vec"] = np.average(np.stack(pts), axis=0)
             else:
                 stats["mps_avg_vec"] = None
+
+            if flag_unique_mp_feats:
+                feats = []
+                ids = []
+                ts = []
+                for ii, mp in self.mps.items():
+                    x = mp.featf()
+                    x = x.astype(np.uint64)
+                    x = x * np.arange(len(x)).astype(np.int64)
+                    feats.append(np.sum(x))
+                    ids.append(ii)
+                    ts.append(mp.pt3df())
+
+                m0 = np.max(distance_matrix(ts, ts))
+
+                pairs = defaultdict(list)
+                for ii, feat in zip(ids, feats):
+                    pairs[feat].append(ii)
+
+                m = 0
+                for feat, iis in pairs.items():
+                    if len(iis) > 1:
+                        ts = [self.mps[ii].pt3df() for ii in iis]
+                        m = max(m, np.max(distance_matrix(ts, ts)))
+                print(2222222222222222222, m / m0)
+                # print(111111111, Counter(feats).most_common(10))
+                stats["mps_unique_mp_feats"] = len(set(feats))
 
         with self.lock_edges_kf2mps:
             l = [len(_) for _ in self.edges_kf2mps.values()]

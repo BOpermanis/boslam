@@ -137,7 +137,7 @@ class MapPoint:
         with self.lock:
             if self.num_frames_visible <= min_n_obs:
                 return True
-            return self.n_obs >= min_n_obs
+            return self.n_obs < min_n_obs
 
     def add_observation(self, feat, n, id_kf):
         with self.lock:
